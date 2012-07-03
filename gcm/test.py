@@ -40,10 +40,10 @@ class GCMTest(unittest.TestCase):
             self.gcm.json_request(registration_ids=reg_ids, data=data)
 
     def test_missing_reg_id(self):
-        with self.assertRaises(GCMMissingRegistration):
+        with self.assertRaises(GCMMissingRegistrationException):
             self.gcm.json_request(registration_ids=[], data={'key': 'value'})
 
-        with self.assertRaises(GCMMissingRegistration):
+        with self.assertRaises(GCMMissingRegistrationException):
             self.gcm.plaintext_request(registration_id=None, data={'key': 'value'})
 
 

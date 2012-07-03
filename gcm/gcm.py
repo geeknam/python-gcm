@@ -10,7 +10,6 @@ class GCMMalformedJsonException(GCMException): pass
 class GCMConnectionException(GCMException): pass
 class GCMAuthenticationException(GCMException): pass
 class GCMTooManyRegIdsException(GCMException): pass
-class C2DMCredentialException(GCMException): pass
 
 # Exceptions from Google responses
 class GCMMissingRegistrationException(GCMException): pass
