@@ -55,6 +55,7 @@ class GCM(object):
 
         data = urllib.urlencode(data)
         req = urllib2.Request(GCM_URL, data, headers)
+
         try:
             response = urllib2.urlopen(req).read()
         except urllib2.HTTPError as e:
@@ -82,16 +83,33 @@ class GCM(object):
         elif error == 'MessageTooBig':
             raise GCMMessageTooBigException("Message can't exceed 4096 bytes")
 
-    def plaintext_request(self, registration_id, data=None, collapse_key=None, delay_while_idle=False, time_to_live=None):
+    def plaintext_request(self, registration_id, data=None, collapse_key=None,
+                            delay_while_idle=False, time_to_live=None):
+
         if not registration_id:
             raise GCMMissingRegistrationException("Missing registration_id")
-        payload = self.construct_payload(registration_id, data, collapse_key, delay_while_idle, time_to_live, False)
+
+        payload = self.construct_payload(
+            registration_id,
+            data, collapse_key,
+            delay_while_idle,
+            time_to_live,
+            False
+        )
+
         return self.make_request(payload, json=False)
 
-    def json_request(self, registration_ids, data=None, collapse_key=None, delay_while_idle=False, time_to_live=None):
+    def json_request(self, registration_ids, data=None, collapse_key=None,
+                        delay_while_idle=False, time_to_live=None):
+
         if not registration_ids:
             raise GCMMissingRegistrationException("Missing registration_ids")
         if len(registration_ids) > 1000:
             raise GCMTooManyRegIdsException("Exceded number of registration_ids")
-        payload = self.construct_payload(registration_ids, data, collapse_key, delay_while_idle, time_to_live)
+
+        payload = self.construct_payload(
+            registration_ids, data, collapse_key,
+            delay_while_idle, time_to_live
+        )
+
         return self.make_request(payload, json=True)
