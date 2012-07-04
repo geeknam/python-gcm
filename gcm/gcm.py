@@ -45,15 +45,16 @@ class GCM(object):
 
         return payload
 
-    def make_request(self, data, json=True):
+    def make_request(self, data, is_json=True):
         headers = {
-            'Authorization': 'key-%s' % self.api_key,
+            'Authorization': 'key=%s' % self.api_key,
         }
         # Default Content-Type is defaulted to application/x-www-form-urlencoded;charset=UTF-8
-        if json:
+        if is_json:
             headers['Content-Type'] = 'application/json'
-
-        data = urllib.urlencode(data)
+        
+        if not is_json:
+            data = urllib.urlencode(data)
         req = urllib2.Request(GCM_URL, data, headers)
 
         try:
@@ -67,7 +68,7 @@ class GCM(object):
         except urllib2.URLError as e:
             raise GCMConnectionException("There was an internal error in the GCM server while trying to process the request")
 
-        if json:
+        if is_json:
             response = json.loads(response)
         return response
 
@@ -112,4 +113,4 @@ class GCM(object):
             delay_while_idle, time_to_live
         )
 
-        return self.make_request(payload, json=True)
+        return self.make_request(payload, is_json=True)
