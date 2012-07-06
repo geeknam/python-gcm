@@ -46,6 +46,24 @@ class GCMTest(unittest.TestCase):
         with self.assertRaises(GCMMissingRegistrationException):
             self.gcm.plaintext_request(registration_id=None, data={'key': 'value'})
 
+    def test_handle_response(self):
+        response = {
+            'results': {'error': 'MissingRegistration'}
+        }
+        with self.assertRaises(GCMMissingRegistrationException):
+            self.gcm.handle_response(response)
+
+        response['results']['error'] = 'InvalidRegistration'
+        with self.assertRaises(GCMMismatchSenderIdException):
+            self.gcm.handle_response(response)
+
+        response['results']['error'] = 'NotRegistered'
+        with self.assertRaises(GCMNotRegisteredException):
+            self.gcm.handle_response(response)
+
+        response['results']['error'] = 'MessageTooBig'
+        with self.assertRaises(GCMMessageTooBigException):
+            self.gcm.handle_response(response)
 
 if __name__ == '__main__':
     unittest.main()
