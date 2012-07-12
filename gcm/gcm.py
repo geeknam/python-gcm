@@ -10,6 +10,7 @@ class GCMMalformedJsonException(GCMException): pass
 class GCMConnectionException(GCMException): pass
 class GCMAuthenticationException(GCMException): pass
 class GCMTooManyRegIdsException(GCMException): pass
+class GCMNoCollapseKey(GCMException): pass
 
 # Exceptions from Google responses
 class GCMMissingRegistrationException(GCMException): pass
@@ -36,8 +37,15 @@ class GCM(object):
                     data['data.%s' % k] = data.pop(k)
                 payload.update(data)
 
+        if delay_while_idle:
+            payload['delay_while_idle'] = delay_while_idle
+
         if time_to_live:
             payload['time_to_live'] = time_to_live
+            if collapse_key is None:
+                raise GCMNoCollapseKey("collapse_key is required when time_to_live is provided")
+
+        if collapse_key:
             payload['collapse_key'] = collapse_key
 
         if json:
@@ -52,7 +60,7 @@ class GCM(object):
         # Default Content-Type is defaulted to application/x-www-form-urlencoded;charset=UTF-8
         if is_json:
             headers['Content-Type'] = 'application/json'
-        
+
         if not is_json:
             data = urllib.urlencode(data)
         req = urllib2.Request(GCM_URL, data, headers)
@@ -91,11 +99,8 @@ class GCM(object):
             raise GCMMissingRegistrationException("Missing registration_id")
 
         payload = self.construct_payload(
-            registration_id,
-            data, collapse_key,
-            delay_while_idle,
-            time_to_live,
-            False
+            registration_id, data, collapse_key,
+            delay_while_idle, time_to_live, False
         )
 
         return self.make_request(payload, json=False)
