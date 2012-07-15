@@ -22,7 +22,7 @@ class GCMTest(unittest.TestCase):
             self.assertIn(arg, payload)
 
     def test_require_collapse_key(self):
-        with self.assertRaises(GCMNoCollapseKey):
+        with self.assertRaises(GCMNoCollapseKeyException):
             self.gcm.construct_payload(registration_ids='1234', data=self.data, time_to_live=3600)
 
     def test_json_payload(self):
@@ -53,6 +53,17 @@ class GCMTest(unittest.TestCase):
 
         with self.assertRaises(GCMMissingRegistrationException):
             self.gcm.plaintext_request(registration_id=None, data=self.data)
+
+    def test_invalid_ttl(self):
+        with self.assertRaises(GCMInvalidTtlException):
+            self.gcm.construct_payload(
+                registration_ids='1234', data=self.data, is_json=False, time_to_live=5000000
+            )
+
+        with self.assertRaises(GCMInvalidTtlException):
+            self.gcm.construct_payload(
+                registration_ids='1234', data=self.data, is_json=False, time_to_live=-10
+            )
 
     def test_handle_response(self):
         response = {

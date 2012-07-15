@@ -10,7 +10,8 @@ class GCMMalformedJsonException(GCMException): pass
 class GCMConnectionException(GCMException): pass
 class GCMAuthenticationException(GCMException): pass
 class GCMTooManyRegIdsException(GCMException): pass
-class GCMNoCollapseKey(GCMException): pass
+class GCMNoCollapseKeyException(GCMException): pass
+class GCMInvalidTtlException(GCMException): pass
 
 # Exceptions from Google responses
 class GCMMissingRegistrationException(GCMException): pass
@@ -26,6 +27,20 @@ class GCM(object):
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
                             delay_while_idle=False, time_to_live=None, is_json=True):
+        """
+        Construct the dictionary mapping of parameters.
+        Encodes the dictionary into JSON if for json requests.
+        Helps appending 'data.' prefix to the plaintext data: 'hello' => 'data.hello'
+
+        :return constructed dict or JSON payload
+        :raises GCMInvalidTtlException: if time_to_live is invalid
+        :raises GCMNoCollapseKeyException: if collapse_key is missing when time_to_live is used
+        """
+
+        if time_to_live:
+            if time_to_live > 2419200 or time_to_live < 0:
+                raise GCMInvalidTtlException("Invalid time to live value")
+
         if is_json:
             payload = {'registration_ids': registration_ids}
             if data:
@@ -43,7 +58,7 @@ class GCM(object):
         if time_to_live:
             payload['time_to_live'] = time_to_live
             if collapse_key is None:
-                raise GCMNoCollapseKey("collapse_key is required when time_to_live is provided")
+                raise GCMNoCollapseKeyException("collapse_key is required when time_to_live is provided")
 
         if collapse_key:
             payload['collapse_key'] = collapse_key
@@ -54,6 +69,15 @@ class GCM(object):
         return payload
 
     def make_request(self, data, is_json=True):
+        """
+        Makes a HTTP request to GCM servers with the constructed payload
+
+        :param data: return value from construct_payload method
+        :raises GCMMalformedJsonException: if malformed JSON request found
+        :raises GCMAuthenticationException: if there was a problem with authentication, invalid api key
+        :raises GCMConnectionException: if GCM is screwed
+        """
+
         headers = {
             'Authorization': 'key=%s' % self.api_key,
         }
@@ -81,6 +105,11 @@ class GCM(object):
         return response
 
     def handle_response(self, response):
+        """
+        Raises exceptions from Google's response if found.
+        Use this to find out if the data sent had any errors
+        """
+
         error = response['results']['error']
 
         if error == 'MissingRegistration':
@@ -94,6 +123,14 @@ class GCM(object):
 
     def plaintext_request(self, registration_id, data=None, collapse_key=None,
                             delay_while_idle=False, time_to_live=None):
+        """
+        Makes a plaintext request to GCM servers
+
+        :param registration_id: string of the registration id
+        :param data: dict mapping of key-value pairs of messages
+        :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
+        :raises GCMMissingRegistrationException: if registration_id is not provided
+        """
 
         if not registration_id:
             raise GCMMissingRegistrationException("Missing registration_id")
@@ -107,6 +144,14 @@ class GCM(object):
 
     def json_request(self, registration_ids, data=None, collapse_key=None,
                         delay_while_idle=False, time_to_live=None):
+        """
+        Makes a JSON request to GCM servers
+
+        :param registration_ids: list of the registration ids
+        :param data: dict mapping of key-value pairs of messages
+        :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
+        :raises GCMMissingRegistrationException: if the list of registration_ids exceeds 1000 items
+        """
 
         if not registration_ids:
             raise GCMMissingRegistrationException("Missing registration_ids")

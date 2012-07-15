@@ -39,7 +39,11 @@ Read more on response errors [here](http://developer.android.com/guide/google/gc
 * GCMConnectionException
 * GCMAuthenticationException
 * GCMTooManyRegIdsException
+* GCMNoCollapseKeyException
+* GCMInvalidTtlException
 * GCMMissingRegistrationException
 * GCMMismatchSenderIdException
 * GCMNotRegisteredException
 * GCMMessageTooBigException
+
+![Gotta catch them all](http://t.qkme.me/35gjhs.jpg)
