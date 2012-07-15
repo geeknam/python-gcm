@@ -7,8 +7,8 @@ Python client for Google Cloud Messaging for Android (GCM)
 Usage
 ------------
 RTFM [here](http://developer.android.com/guide/google/gcm/gcm.html)
-
-
+        
+        ```python
         gcm = GCM(API_KEY)
         data = {'param1': 'value1', 'param2': 'value2'}
         
@@ -28,7 +28,7 @@ RTFM [here](http://developer.android.com/guide/google/gcm/gcm.html)
 
         # Handle responses. This raises exceptions when GCM servers return errors 
         gcm.handle_response(res)
-
+        ```
 
 Exceptions
 ------------
