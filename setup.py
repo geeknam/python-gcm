@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='python-gcm',
-    version='0.1',
+    version='0.1.1',
     packages=['gcm',],
     license='MIT',
     author='Minh Nam Ngo',
