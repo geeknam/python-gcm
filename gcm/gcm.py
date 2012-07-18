@@ -19,6 +19,8 @@ class GCMMissingRegistrationException(GCMException): pass
 class GCMMismatchSenderIdException(GCMException): pass
 class GCMNotRegisteredException(GCMException): pass
 class GCMMessageTooBigException(GCMException): pass
+class GCMInvalidRegistrationException(GCMException): pass
+class GCMUnavailableException(GCMException): pass
 
 
 # TODO: Refactor this to be more human-readable
@@ -130,9 +132,13 @@ class GCM(object):
 
     def raise_error(self, error):
         if error == 'InvalidRegistration':
-            raise GCMMismatchSenderIdException("A registration ID is tied to a certain group of senders")
+            raise GCMInvalidRegistrationException("Registration ID is invalid")
+        elif error == 'Unavailable':
+            raise GCMUnavailableException("Server unavailable. Resent the message")
         elif error == 'NotRegistered':
             raise GCMNotRegisteredException("Registration id is not valid anymore")
+        elif error == 'MismatchSenderId':
+            raise GCMMismatchSenderIdException("A Registration ID is tied to a certain group of senders")
         elif error == 'MessageTooBig':
             raise GCMMessageTooBigException("Message can't exceed 4096 bytes")
 
@@ -140,7 +146,6 @@ class GCM(object):
 
         # Split response by line
         response_lines = response.strip().split('\n')
-
         # Split the first line by =
         key, value = response_lines[0].split('=')
         if key == 'Error':

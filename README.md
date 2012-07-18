@@ -24,16 +24,20 @@ try:
 except GCMNotRegisteredException:
     # Remove this reg_id from database
     entity.filter(registration_id=reg_id).delete()
+except GCMUnavailableException:
+    # Resent the message
 
 # JSON request
 reg_ids = ['12', '34', '69']
 response = gcm.json_request(registration_ids=reg_ids, data=data)
+
+# Handling errors
 if 'errors' in response:
-    for error in response['errors']:
+    for error, reg_ids in response.items():
         # Check for errors and act accordingly
         if error is 'NotRegistered':
-            # Remove this ALL (multiple) reg_ids from database
-            for reg_id in response['errors'][error]:
+            # Remove reg_ids from database
+            for reg_id in reg_ids:
                 entity.filter(registration_id=reg_id).delete()
 if 'canonical' in response:
     for canonical_id, reg_id in response.items():
@@ -65,5 +69,7 @@ Read more on response errors [here](http://developer.android.com/guide/google/gc
 * GCMMismatchSenderIdException
 * GCMNotRegisteredException
 * GCMMessageTooBigException
+* GCMInvalidRegistrationException
+* GCMUnavailableException
 
 ![Gotta catch them all](http://t.qkme.me/35gjhs.jpg)
