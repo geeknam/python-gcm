@@ -14,11 +14,33 @@ data = {'param1': 'value1', 'param2': 'value2'}
 
 # Plaintext request
 reg_id = '12345'
-res = gcm.plaintext_request(registration_id=reg_id, data=data)
+try:
+    canonical_id = gcm.plaintext_request(registration_id=reg_id, data=data)
+    if canonical_id:
+        # Repace reg_id with canonical_id in your database
+        entry = entity.filter(registration_id=reg_id)
+        entry.registration_id = canonical_id
+        entry.save()
+except GCMNotRegisteredException:
+    # Remove this reg_id from database
+    entity.filter(registration_id=reg_id).delete()
 
 # JSON request
 reg_ids = ['12', '34', '69']
-res = gcm.json_request(registration_ids=reg_ids, data=data)
+response = gcm.json_request(registration_ids=reg_ids, data=data)
+if 'errors' in response:
+    for error in response['errors']:
+        # Check for errors and act accordingly
+        if error is 'NotRegistered':
+            # Remove this ALL (multiple) reg_ids from database
+            for reg_id in response['errors'][error]:
+                entity.filter(registration_id=reg_id).delete()
+if 'canonical' in response:
+    for canonical_id, reg_id in response.items():
+        # Repace reg_id with canonical_id in your database
+        entry = entity.filter(registration_id=reg_id)
+        entry.registration_id = canonical_id
+        entry.save()
 
 # Extra arguments
 res = gcm.json_request(
@@ -26,8 +48,6 @@ res = gcm.json_request(
     collapse_key='uptoyou', delay_while_idle=True, time_to_live=3600
 )
 
-# Handle responses. This raises exceptions when GCM servers return errors 
-gcm.handle_response(res)
 ```
 
 Exceptions

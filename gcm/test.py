@@ -11,6 +11,16 @@ class GCMTest(unittest.TestCase):
             'param1': '1',
             'param2': '2'
         }
+        self.response = {
+            'results': [
+                {'error': 'InvalidRegistration'},
+                {'error': 'NotRegistered'},
+                {'message_id': '54749687859', 'registration_id': '6969'},
+                {'message_id': '5456453453'},
+                {'error': 'NotRegistered'},
+                {'message_id': '123456778', 'registration_id': '07645'},
+            ]
+        }
 
     def test_construct_payload(self):
         res = self.gcm.construct_payload(
@@ -65,40 +75,65 @@ class GCMTest(unittest.TestCase):
                 registration_ids='1234', data=self.data, is_json=False, time_to_live=-10
             )
 
-    # def test_handle_response(self):
-    #     response = {
-    #         'results': {'error': 'MissingRegistration'}
-    #     }
-    #     with self.assertRaises(GCMMissingRegistrationException):
-    #         self.gcm.handle_response(response)
-
-    #     response['results']['error'] = 'InvalidRegistration'
-    #     with self.assertRaises(GCMMismatchSenderIdException):
-    #         self.gcm.handle_response(response)
-
-    #     response['results']['error'] = 'NotRegistered'
-    #     with self.assertRaises(GCMNotRegisteredException):
-    #         self.gcm.handle_response(response)
-
-    #     response['results']['error'] = 'MessageTooBig'
-    #     with self.assertRaises(GCMMessageTooBigException):
-    #         self.gcm.handle_response(response)
-
     def test_group_response(self):
-        ids = ['123', '345', '678', '999', '1919']
+        ids = ['123', '345', '678', '999', '1919', '5443']
+        error_group = group_response(self.response, ids, 'error')
+        self.assertEqual(error_group['NotRegistered'], ['345', '1919'])
+        self.assertEqual(error_group['InvalidRegistration'], ['123'])
+
+        canonical_group = group_response(self.response, ids, 'registration_id')
+        self.assertEqual(canonical_group['678'], '6969')
+        self.assertEqual(canonical_group['5443'], '07645')
+
+    def test_group_response_no_error(self):
+        ids = ['123', '345', '678']
         response = {
             'results': [
-                {'error': 'InvalidRegistration'},
-                {'error': 'NotRegistered'},
-                {'message_id': '54749687859', 'registration_id': '6969'},
+                {'message_id': '346547676'},
+                {'message_id': '54749687859'},
                 {'message_id': '5456453453'},
-                {'error': 'NotRegistered'},
             ]
         }
         error_group = group_response(response, ids, 'error')
+        canonical_group = group_response(response, ids, 'registration_id')
+        self.assertEqual(error_group, None)
+        self.assertEqual(canonical_group, None)
 
-        self.assertEqual(error_group['NotRegistered'], ['345', '1919'])
-        self.assertEqual(error_group['InvalidRegistration'], ['123'])
+    def test_handle_json_response(self):
+        ids = ['123', '345', '678', '999', '1919', '5443']
+        res = self.gcm.handle_json_response(self.response, ids)
+
+        self.assertIn('errors', res)
+        self.assertIn('NotRegistered', res['errors'])
+        self.assertIn('canonical', res)
+        self.assertIn('678', res['canonical'])
+
+    def test_handle_json_response_no_error(self):
+        ids = ['123', '345', '678']
+        response = {
+            'results': [
+                {'message_id': '346547676'},
+                {'message_id': '54749687859'},
+                {'message_id': '5456453453'},
+            ]
+        }
+        res = self.gcm.handle_json_response(response, ids)
+
+        self.assertNotIn('errors', res)
+        self.assertNotIn('canonical', res)
+
+    def test_handle_plaintext_response(self):
+        response = 'Error=NotRegistered'
+        with self.assertRaises(GCMNotRegisteredException):
+            self.gcm.handle_plaintext_response(response)
+
+        response = 'id=23436576'
+        res = self.gcm.handle_plaintext_response(response)
+        self.assertIsNone(res)
+
+        response = 'id=23436576\nregistration_id=3456'
+        res = self.gcm.handle_plaintext_response(response)
+        self.assertEqual(res, '3456')
 
 if __name__ == '__main__':
     unittest.main()

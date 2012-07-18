@@ -21,6 +21,29 @@ class GCMNotRegisteredException(GCMException): pass
 class GCMMessageTooBigException(GCMException): pass
 
 
+# TODO: Refactor this to be more human-readable
+def group_response(response, registration_ids, key):
+    # Pair up results and reg_ids
+    mapping = zip(registration_ids, response['results'])
+    # Filter by key
+    filtered = filter(lambda x: key in x[1], mapping)
+    # Only consider the value in the dict
+    tupled = [(s[0], s[1][key]) for s in filtered]
+    # Grouping of errors and mapping of ids
+    if key is 'registration_id':
+        grouping = {}
+        for k, v in tupled:
+            grouping[k] = v
+    else:
+        grouping = defaultdict(list)
+        for k, v in tupled:
+            grouping[v].append(k)
+
+    if len(grouping) == 0:
+        return
+    return grouping
+
+
 class GCM(object):
 
     def __init__(self, api_key):
@@ -129,14 +152,16 @@ class GCM(object):
                 return
 
     def handle_json_response(self, response, registration_ids):
-        status_mapping = zip(registration_ids, response['results'])
-        errors = [
-            (s[0], s[1]['error']) for s in filter(lambda x: 'error' in x[1], status_mapping)
-        ]
+        errors = group_response(response, registration_ids, 'error')
+        canonical = group_response(response, registration_ids, 'registration_id')
 
-        canonical = filter(lambda x: 'registration_id' in x[1], status_mapping)
+        info = {}
+        if errors:
+            info.update({'errors': errors})
+        if canonical:
+            info.update({'canonical': canonical})
 
-        return errors, canonical
+        return info
 
     def plaintext_request(self, registration_id, data=None, collapse_key=None,
                             delay_while_idle=False, time_to_live=None):
@@ -183,14 +208,3 @@ class GCM(object):
 
         response = self.make_request(payload, is_json=True)
         return self.handle_json_response(response, registration_ids)
-
-
-def group_response(response, registration_ids, key):
-    mapping = zip(registration_ids, response['results'])
-    filtered = filter(lambda x: key in x[1], mapping)
-    tupled = [(s[0], s[1][key]) for s in filtered]
-    grouping = defaultdict(list)
-    for v, k in tupled:
-        grouping[k].append(v)
-
-    return grouping
