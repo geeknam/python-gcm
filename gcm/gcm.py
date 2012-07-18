@@ -140,7 +140,7 @@ class GCM(object):
             delay_while_idle, time_to_live, False
         )
 
-        return self.make_request(payload, json=False)
+        return self.make_request(payload, is_json=False)
 
     def json_request(self, registration_ids, data=None, collapse_key=None,
                         delay_while_idle=False, time_to_live=None):
