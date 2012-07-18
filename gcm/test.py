@@ -65,24 +65,40 @@ class GCMTest(unittest.TestCase):
                 registration_ids='1234', data=self.data, is_json=False, time_to_live=-10
             )
 
-    def test_handle_response(self):
+    # def test_handle_response(self):
+    #     response = {
+    #         'results': {'error': 'MissingRegistration'}
+    #     }
+    #     with self.assertRaises(GCMMissingRegistrationException):
+    #         self.gcm.handle_response(response)
+
+    #     response['results']['error'] = 'InvalidRegistration'
+    #     with self.assertRaises(GCMMismatchSenderIdException):
+    #         self.gcm.handle_response(response)
+
+    #     response['results']['error'] = 'NotRegistered'
+    #     with self.assertRaises(GCMNotRegisteredException):
+    #         self.gcm.handle_response(response)
+
+    #     response['results']['error'] = 'MessageTooBig'
+    #     with self.assertRaises(GCMMessageTooBigException):
+    #         self.gcm.handle_response(response)
+
+    def test_group_response(self):
+        ids = ['123', '345', '678', '999', '1919']
         response = {
-            'results': {'error': 'MissingRegistration'}
+            'results': [
+                {'error': 'InvalidRegistration'},
+                {'error': 'NotRegistered'},
+                {'message_id': '54749687859', 'registration_id': '6969'},
+                {'message_id': '5456453453'},
+                {'error': 'NotRegistered'},
+            ]
         }
-        with self.assertRaises(GCMMissingRegistrationException):
-            self.gcm.handle_response(response)
+        error_group = group_response(response, ids, 'error')
 
-        response['results']['error'] = 'InvalidRegistration'
-        with self.assertRaises(GCMMismatchSenderIdException):
-            self.gcm.handle_response(response)
-
-        response['results']['error'] = 'NotRegistered'
-        with self.assertRaises(GCMNotRegisteredException):
-            self.gcm.handle_response(response)
-
-        response['results']['error'] = 'MessageTooBig'
-        with self.assertRaises(GCMMessageTooBigException):
-            self.gcm.handle_response(response)
+        self.assertEqual(error_group['NotRegistered'], ['345', '1919'])
+        self.assertEqual(error_group['InvalidRegistration'], ['123'])
 
 if __name__ == '__main__':
     unittest.main()

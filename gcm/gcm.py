@@ -1,6 +1,7 @@
 import urllib
 import urllib2
 import json
+from collections import defaultdict
 
 GCM_URL = 'https://android.googleapis.com/gcm/send'
 
@@ -104,22 +105,38 @@ class GCM(object):
             response = json.loads(response)
         return response
 
-    def handle_response(self, response):
-        """
-        Raises exceptions from Google's response if found.
-        Use this to find out if the data sent had any errors
-        """
-
-        error = response['results']['error']
-
-        if error == 'MissingRegistration':
-            raise GCMMissingRegistrationException("Missing registration_ids")
-        elif error == 'InvalidRegistration':
+    def raise_error(self, error):
+        if error == 'InvalidRegistration':
             raise GCMMismatchSenderIdException("A registration ID is tied to a certain group of senders")
         elif error == 'NotRegistered':
             raise GCMNotRegisteredException("Registration id is not valid anymore")
         elif error == 'MessageTooBig':
             raise GCMMessageTooBigException("Message can't exceed 4096 bytes")
+
+    def handle_plaintext_response(self, response):
+
+        # Split response by line
+        response_lines = response.strip().split('\n')
+
+        # Split the first line by =
+        key, value = response_lines[0].split('=')
+        if key == 'Error':
+            self.raise_error(value)
+        else:
+            if len(response_lines) == 2:
+                return response_lines[1].split('=')[1]
+            else:
+                return
+
+    def handle_json_response(self, response, registration_ids):
+        status_mapping = zip(registration_ids, response['results'])
+        errors = [
+            (s[0], s[1]['error']) for s in filter(lambda x: 'error' in x[1], status_mapping)
+        ]
+
+        canonical = filter(lambda x: 'registration_id' in x[1], status_mapping)
+
+        return errors, canonical
 
     def plaintext_request(self, registration_id, data=None, collapse_key=None,
                             delay_while_idle=False, time_to_live=None):
@@ -140,7 +157,8 @@ class GCM(object):
             delay_while_idle, time_to_live, False
         )
 
-        return self.make_request(payload, is_json=False)
+        response = self.make_request(payload, is_json=False)
+        return self.handle_plaintext_response(response)
 
     def json_request(self, registration_ids, data=None, collapse_key=None,
                         delay_while_idle=False, time_to_live=None):
@@ -163,4 +181,16 @@ class GCM(object):
             delay_while_idle, time_to_live
         )
 
-        return self.make_request(payload, is_json=True)
+        response = self.make_request(payload, is_json=True)
+        return self.handle_json_response(response, registration_ids)
+
+
+def group_response(response, registration_ids, key):
+    mapping = zip(registration_ids, response['results'])
+    filtered = filter(lambda x: key in x[1], mapping)
+    tupled = [(s[0], s[1][key]) for s in filtered]
+    grouping = defaultdict(list)
+    for v, k in tupled:
+        grouping[k].append(v)
+
+    return grouping
