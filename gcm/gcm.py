@@ -63,7 +63,7 @@ class GCM(object):
         if collapse_key:
             payload['collapse_key'] = collapse_key
 
-        if json:
+        if is_json:
             payload = json.dumps(payload)
 
         return payload
