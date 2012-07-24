@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Python-gcm by geeknam</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Python-gcm</h1>
+        <p>Python client for Google Cloud Messaging for Android (GCM)</p>
+
+        <p class="view"><a href="https://github.com/geeknam/python-gcm">View the Project on GitHub <small>geeknam/python-gcm</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/geeknam/python-gcm/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/geeknam/python-gcm/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/geeknam/python-gcm">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>python-gcm</h1>
+
+<p><a href="http://travis-ci.org/geeknam/python-gcm"><img src="https://secure.travis-ci.org/geeknam/python-gcm.png?branch=master" alt="Build Status"></a></p>
+
+<p>Python client for Google Cloud Messaging for Android (GCM)</p>
+
+<h2>Usage</h2>
+
+<p>RTFM <a href="http://developer.android.com/guide/google/gcm/gcm.html">here</a></p>
+
+<p>Basic</p>
+
+<div class="highlight"><pre><span class="n">gcm</span> <span class="o">=</span> <span class="n">GCM</span><span class="p">(</span><span class="n">API_KEY</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s">'param1'</span><span class="p">:</span> <span class="s">'value1'</span><span class="p">,</span> <span class="s">'param2'</span><span class="p">:</span> <span class="s">'value2'</span><span class="p">}</span>
+
+<span class="c"># Plaintext request</span>
+<span class="n">gcm</span><span class="o">.</span><span class="n">plaintext_request</span><span class="p">(</span><span class="n">registration_id</span><span class="o">=</span><span class="n">reg_id</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+
+<span class="c"># JSON request</span>
+<span class="n">reg_ids</span> <span class="o">=</span> <span class="p">[</span><span class="s">'12'</span><span class="p">,</span> <span class="s">'34'</span><span class="p">,</span> <span class="s">'69'</span><span class="p">]</span>
+<span class="n">response</span> <span class="o">=</span> <span class="n">gcm</span><span class="o">.</span><span class="n">json_request</span><span class="p">(</span><span class="n">registration_ids</span><span class="o">=</span><span class="n">reg_ids</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+
+<span class="c"># Extra arguments</span>
+<span class="n">res</span> <span class="o">=</span> <span class="n">gcm</span><span class="o">.</span><span class="n">json_request</span><span class="p">(</span>
+    <span class="n">registration_ids</span><span class="o">=</span><span class="n">reg_ids</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+    <span class="n">collapse_key</span><span class="o">=</span><span class="s">'uptoyou'</span><span class="p">,</span> <span class="n">delay_while_idle</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">time_to_live</span><span class="o">=</span><span class="mi">3600</span>
+<span class="p">)</span>
+</pre></div>
+
+<p>Error handling</p>
+
+<div class="highlight"><pre><span class="c"># Plaintext request</span>
+<span class="n">reg_id</span> <span class="o">=</span> <span class="s">'12345'</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">canonical_id</span> <span class="o">=</span> <span class="n">gcm</span><span class="o">.</span><span class="n">plaintext_request</span><span class="p">(</span><span class="n">registration_id</span><span class="o">=</span><span class="n">reg_id</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">canonical_id</span><span class="p">:</span>
+        <span class="c"># Repace reg_id with canonical_id in your database</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">registration_id</span><span class="o">=</span><span class="n">reg_id</span><span class="p">)</span>
+        <span class="n">entry</span><span class="o">.</span><span class="n">registration_id</span> <span class="o">=</span> <span class="n">canonical_id</span>
+        <span class="n">entry</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+<span class="k">except</span> <span class="n">GCMNotRegisteredException</span><span class="p">:</span>
+    <span class="c"># Remove this reg_id from database</span>
+    <span class="n">entity</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">registration_id</span><span class="o">=</span><span class="n">reg_id</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<span class="k">except</span> <span class="n">GCMUnavailableException</span><span class="p">:</span>
+    <span class="c"># Resent the message</span>
+
+<span class="c"># JSON request</span>
+<span class="n">reg_ids</span> <span class="o">=</span> <span class="p">[</span><span class="s">'12'</span><span class="p">,</span> <span class="s">'34'</span><span class="p">,</span> <span class="s">'69'</span><span class="p">]</span>
+<span class="n">response</span> <span class="o">=</span> <span class="n">gcm</span><span class="o">.</span><span class="n">json_request</span><span class="p">(</span><span class="n">registration_ids</span><span class="o">=</span><span class="n">reg_ids</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+
+<span class="c"># Handling errors</span>
+<span class="k">if</span> <span class="s">'errors'</span> <span class="ow">in</span> <span class="n">response</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">error</span><span class="p">,</span> <span class="n">reg_ids</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c"># Check for errors and act accordingly</span>
+        <span class="k">if</span> <span class="n">error</span> <span class="ow">is</span> <span class="s">'NotRegistered'</span><span class="p">:</span>
+            <span class="c"># Remove reg_ids from database</span>
+            <span class="k">for</span> <span class="n">reg_id</span> <span class="ow">in</span> <span class="n">reg_ids</span><span class="p">:</span>
+                <span class="n">entity</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">registration_id</span><span class="o">=</span><span class="n">reg_id</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<span class="k">if</span> <span class="s">'canonical'</span> <span class="ow">in</span> <span class="n">response</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">canonical_id</span><span class="p">,</span> <span class="n">reg_id</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c"># Repace reg_id with canonical_id in your database</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">registration_id</span><span class="o">=</span><span class="n">reg_id</span><span class="p">)</span>
+        <span class="n">entry</span><span class="o">.</span><span class="n">registration_id</span> <span class="o">=</span> <span class="n">canonical_id</span>
+        <span class="n">entry</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</pre></div>
+
+<h2>Exceptions</h2>
+
+<p>Read more on response errors <a href="http://developer.android.com/guide/google/gcm/gcm.html#success">here</a></p>
+
+<ul>
+<li>GCMMalformedJsonException</li>
+<li>GCMConnectionException</li>
+<li>GCMAuthenticationException</li>
+<li>GCMTooManyRegIdsException</li>
+<li>GCMNoCollapseKeyException</li>
+<li>GCMInvalidTtlException</li>
+<li>GCMMissingRegistrationException</li>
+<li>GCMMismatchSenderIdException</li>
+<li>GCMNotRegisteredException</li>
+<li>GCMMessageTooBigException</li>
+<li>GCMInvalidRegistrationException</li>
+<li>GCMUnavailableException</li>
+</ul><p><img src="http://t.qkme.me/35gjhs.jpg" alt="Gotta catch them all"></p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/geeknam">geeknam</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
