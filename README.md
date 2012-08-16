@@ -50,14 +50,14 @@ response = gcm.json_request(registration_ids=reg_ids, data=data)
 
 # Handling errors
 if 'errors' in response:
-    for error, reg_ids in response.items():
+    for error, reg_ids in response['errors'].items():
         # Check for errors and act accordingly
         if error is 'NotRegistered':
             # Remove reg_ids from database
             for reg_id in reg_ids:
                 entity.filter(registration_id=reg_id).delete()
 if 'canonical' in response:
-    for canonical_id, reg_id in response.items():
+    for canonical_id, reg_id in response['canonical'].items():
         # Repace reg_id with canonical_id in your database
         entry = entity.filter(registration_id=reg_id)
         entry.registration_id = canonical_id
