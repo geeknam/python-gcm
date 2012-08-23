@@ -2,6 +2,8 @@ import urllib
 import urllib2
 import json
 from collections import defaultdict
+import time
+import random
 
 GCM_URL = 'https://android.googleapis.com/gcm/send'
 
@@ -47,6 +49,10 @@ def group_response(response, registration_ids, key):
 
 
 class GCM(object):
+
+    # Timeunit is milliseconds.
+    BACKOFF_INITIAL_DELAY = 1000;
+    MAX_BACKOFF_DELAY = 1024000;
 
     def __init__(self, api_key):
         self.api_key = api_key
@@ -122,7 +128,8 @@ class GCM(object):
                 raise GCMMalformedJsonException("The request could not be parsed as JSON")
             elif e.code == 401:
                 raise GCMAuthenticationException("There was an error authenticating the sender account")
-            # TODO: handle 503 and Retry-After
+            elif e.code == 503:
+                raise GCMUnavailableException("GCM service is unavailable")
         except urllib2.URLError as e:
             raise GCMConnectionException("There was an internal error in the GCM server while trying to process the request")
 
@@ -134,6 +141,8 @@ class GCM(object):
         if error == 'InvalidRegistration':
             raise GCMInvalidRegistrationException("Registration ID is invalid")
         elif error == 'Unavailable':
+            # Plain-text requests will never return Unavailable as the error code.
+            # http://developer.android.com/guide/google/gcm/gcm.html#error_codes
             raise GCMUnavailableException("Server unavailable. Resent the message")
         elif error == 'NotRegistered':
             raise GCMNotRegisteredException("Registration id is not valid anymore")
@@ -168,8 +177,14 @@ class GCM(object):
 
         return info
 
+    def extract_unsent_reg_ids(self, info):
+        if 'errors' in info and 'Unavailable' in info['errors']:
+            return info['errors']['Unavailable']
+        else:
+            return []
+
     def plaintext_request(self, registration_id, data=None, collapse_key=None,
-                            delay_while_idle=False, time_to_live=None):
+                            delay_while_idle=False, time_to_live=None, retries = 5):
         """
         Makes a plaintext request to GCM servers
 
@@ -187,11 +202,22 @@ class GCM(object):
             delay_while_idle, time_to_live, False
         )
 
-        response = self.make_request(payload, is_json=False)
-        return self.handle_plaintext_response(response)
+        attempt = 0
+        backoff = self.BACKOFF_INITIAL_DELAY
+        for attempt in range(retries):
+            try:
+                response = self.make_request(payload, is_json=False)
+                return self.handle_plaintext_response(response)
+            except GCMUnavailableException as e:
+                sleep_time = backoff / 2 + random.randrange(backoff)
+                time.sleep(float(sleep_time) /1000) 
+                if 2 * backoff < self.MAX_BACKOFF_DELAY:
+                    backoff *= 2
+
+        raise IOError("Could not make request after %d attempts" % attempt)
 
     def json_request(self, registration_ids, data=None, collapse_key=None,
-                        delay_while_idle=False, time_to_live=None):
+                        delay_while_idle=False, time_to_live=None, retries = 5):
         """
         Makes a JSON request to GCM servers
 
@@ -206,10 +232,24 @@ class GCM(object):
         if len(registration_ids) > 1000:
             raise GCMTooManyRegIdsException("Exceded number of registration_ids")
 
-        payload = self.construct_payload(
-            registration_ids, data, collapse_key,
-            delay_while_idle, time_to_live
-        )
+        attempt = 0
+        backoff = self.BACKOFF_INITIAL_DELAY
+        for attempt in range(retries):
+            payload = self.construct_payload(
+                registration_ids, data, collapse_key,
+                delay_while_idle, time_to_live
+            )
+            response = self.make_request(payload, is_json=True)
+            info = self.handle_json_response(response, registration_ids)
 
-        response = self.make_request(payload, is_json=True)
-        return self.handle_json_response(response, registration_ids)
+            unsent_reg_ids = self.extract_unsent_reg_ids(info)
+            if unsent_reg_ids:
+                registration_ids = unsent_reg_ids
+                sleep_time = backoff / 2 + random.randrange(backoff)
+                time.sleep(float(sleep_time) / 1000)
+                if 2 * backoff < self.MAX_BACKOFF_DELAY:
+                    backoff *= 2
+            else:
+                break
+
+        return info
