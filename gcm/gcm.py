@@ -184,7 +184,7 @@ class GCM(object):
             return []
 
     def plaintext_request(self, registration_id, data=None, collapse_key=None,
-                            delay_while_idle=False, time_to_live=None, retries = 5):
+                            delay_while_idle=False, time_to_live=None, retries=5):
         """
         Makes a plaintext request to GCM servers
 
@@ -208,16 +208,16 @@ class GCM(object):
             try:
                 response = self.make_request(payload, is_json=False)
                 return self.handle_plaintext_response(response)
-            except GCMUnavailableException as e:
+            except GCMUnavailableException:
                 sleep_time = backoff / 2 + random.randrange(backoff)
-                time.sleep(float(sleep_time) /1000) 
+                time.sleep(float(sleep_time) / 1000)
                 if 2 * backoff < self.MAX_BACKOFF_DELAY:
                     backoff *= 2
 
         raise IOError("Could not make request after %d attempts" % attempt)
 
     def json_request(self, registration_ids, data=None, collapse_key=None,
-                        delay_while_idle=False, time_to_live=None, retries = 5):
+                        delay_while_idle=False, time_to_live=None, retries=5):
         """
         Makes a JSON request to GCM servers
 

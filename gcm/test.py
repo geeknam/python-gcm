@@ -1,8 +1,19 @@
 import unittest
 from gcm import *
 import json
-from mock import *
+from mock import MagicMock
 import time
+
+
+# Helper method to return a different value for each call.
+def create_side_effect(returns):
+    def side_effect(*args, **kwargs):
+        result = returns.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+    return side_effect
+
 
 class GCMTest(unittest.TestCase):
 
@@ -23,21 +34,21 @@ class GCMTest(unittest.TestCase):
             ]
         }
         self.mock_response_1 = {
-            'results' : [
-                {'error' : 'Unavailable'},
-                {'error' : 'Unavailable'},
+            'results': [
+                {'error': 'Unavailable'},
+                {'error': 'Unavailable'},
             ]
         }
         self.mock_response_2 = {
-            'results' : [
-                {'error' : 'Unavailable'},
-                {'message_id' : '1234'}
+            'results': [
+                {'error': 'Unavailable'},
+                {'message_id': '1234'}
             ]
         }
         self.mock_response_3 = {
-            'results' : [
-                {'message_id' : '5678'},
-                {'message_id' : '1234'}
+            'results': [
+                {'message_id': '5678'},
+                {'message_id': '1234'}
             ]
         }
         time.sleep = MagicMock()
@@ -158,7 +169,7 @@ class GCMTest(unittest.TestCase):
     def test_retry_plaintext_request_ok(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), 'id=123456789']
 
-        self.gcm.make_request = MagicMock(side_effect=self.create_side_effect(returns))
+        self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
         res = self.gcm.plaintext_request(registration_id='1234', data=self.data)
 
         self.assertIsNone(res)
@@ -167,7 +178,7 @@ class GCMTest(unittest.TestCase):
     def test_retry_plaintext_request_fail(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), GCMUnavailableException()]
 
-        self.gcm.make_request = MagicMock(side_effect=self.create_side_effect(returns))
+        self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
         with self.assertRaises(IOError):
             self.gcm.plaintext_request(registration_id='1234', data=self.data, retries=2)
 
@@ -176,7 +187,7 @@ class GCMTest(unittest.TestCase):
     def test_retry_json_request_ok(self):
         returns = [self.mock_response_1, self.mock_response_2, self.mock_response_3]
 
-        self.gcm.make_request = MagicMock(side_effect=self.create_side_effect(returns))
+        self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
         res = self.gcm.json_request(registration_ids=['1', '2'], data=self.data)
 
         self.assertEqual(self.gcm.make_request.call_count, 3)
@@ -185,7 +196,7 @@ class GCMTest(unittest.TestCase):
     def test_retry_json_request_fail(self):
         returns = [self.mock_response_1, self.mock_response_2, self.mock_response_3]
 
-        self.gcm.make_request = MagicMock(side_effect=self.create_side_effect(returns))
+        self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
         res = self.gcm.json_request(registration_ids=['1', '2'], data=self.data, retries=2)
 
         self.assertEqual(self.gcm.make_request.call_count, 2)
@@ -195,26 +206,17 @@ class GCMTest(unittest.TestCase):
     def test_retry_exponential_backoff(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), 'id=123456789']
 
-        self.gcm.make_request = MagicMock(side_effect=self.create_side_effect(returns))
-        res = self.gcm.plaintext_request(registration_id='1234', data=self.data)
+        self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
+        self.gcm.plaintext_request(registration_id='1234', data=self.data)
 
         # time.sleep is actually mock object.
         self.assertEqual(time.sleep.call_count, 2)
         backoff = self.gcm.BACKOFF_INITIAL_DELAY
         for arg in time.sleep.call_args_list:
             sleep_time = int(arg[0][0] * 1000)
-            self.assertTrue(backoff / 2 <= sleep_time <= backoff * 3 /2)
+            self.assertTrue(backoff / 2 <= sleep_time <= backoff * 3 / 2)
             if 2 * backoff < self.gcm.MAX_BACKOFF_DELAY:
                 backoff *= 2
-
-    # Helper method to return a different value for each call.
-    def create_side_effect(self, returns):
-        def side_effect(*args, **kwargs):
-            result = returns.pop(0)
-            if isinstance(result, Exception):
-                raise result
-            return result
-        return side_effect
 
 if __name__ == '__main__':
     unittest.main()
