@@ -120,7 +120,7 @@ class GCM(object):
 
         if not is_json:
             data = urllib.urlencode(data)
-        req = urllib2.Request(self.GCM_URL, data, headers)
+        req = urllib2.Request(self.url, data, headers)
 
         try:
             response = urllib2.urlopen(req).read()
