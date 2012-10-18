@@ -54,8 +54,9 @@ class GCM(object):
     BACKOFF_INITIAL_DELAY = 1000;
     MAX_BACKOFF_DELAY = 1024000;
 
-    def __init__(self, api_key):
+    def __init__(self, api_key, url=GCM_URL):
         self.api_key = api_key
+        self.url = url
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
                             delay_while_idle=False, time_to_live=None, is_json=True):
@@ -119,7 +120,7 @@ class GCM(object):
 
         if not is_json:
             data = urllib.urlencode(data)
-        req = urllib2.Request(GCM_URL, data, headers)
+        req = urllib2.Request(self.GCM_URL, data, headers)
 
         try:
             response = urllib2.urlopen(req).read()
