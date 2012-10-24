@@ -54,8 +54,22 @@ class GCM(object):
     BACKOFF_INITIAL_DELAY = 1000;
     MAX_BACKOFF_DELAY = 1024000;
 
-    def __init__(self, api_key):
+    def __init__(self, api_key, url=GCM_URL, proxy=None):
+        """ api_key : google api key
+            url: url of gcm service.
+            proxy: can be string "http://host:port" or dict {'https':'host:port'}
+        """
         self.api_key = api_key
+        self.url = url
+        if proxy:
+            if isinstance(proxy,basestring):
+                protocol = url.split(':')[0]
+                proxy={protocol:proxy}
+
+            auth = urllib2.HTTPBasicAuthHandler()
+            opener = urllib2.build_opener(urllib2.ProxyHandler(proxy), auth, urllib2.HTTPHandler)
+            urllib2.install_opener(opener)
+
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
                             delay_while_idle=False, time_to_live=None, is_json=True):
@@ -119,7 +133,7 @@ class GCM(object):
 
         if not is_json:
             data = urllib.urlencode(data)
-        req = urllib2.Request(GCM_URL, data, headers)
+        req = urllib2.Request(self.url, data, headers)
 
         try:
             response = urllib2.urlopen(req).read()
