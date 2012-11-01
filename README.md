@@ -10,10 +10,13 @@ RTFM [here](http://developer.android.com/guide/google/gcm/gcm.html)
         
 Basic
 ```python
+from gcm import GCM
+
 gcm = GCM(API_KEY)
 data = {'param1': 'value1', 'param2': 'value2'}
 
 # Plaintext request
+reg_id = '12'
 gcm.plaintext_request(registration_id=reg_id, data=data)
 
 # JSON request
