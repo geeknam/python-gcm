@@ -4,6 +4,19 @@ python-gcm
 
 Python client for Google Cloud Messaging for Android (GCM)
 
+Installation
+-------------
+```bash
+pip install python-gcm
+```
+
+Features
+------------
+* Supports multicast message
+* Resend messages using exponential back-off
+* Proxy support
+* Easily handle errors
+
 Usage
 ------------
 RTFM [here](http://developer.android.com/guide/google/gcm/gcm.html)
