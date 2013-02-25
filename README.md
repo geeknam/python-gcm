@@ -73,7 +73,7 @@ if 'errors' in response:
             for reg_id in reg_ids:
                 entity.filter(registration_id=reg_id).delete()
 if 'canonical' in response:
-    for canonical_id, reg_id in response['canonical'].items():
+    for reg_id, canonical_id in response['canonical'].items():
         # Repace reg_id with canonical_id in your database
         entry = entity.filter(registration_id=reg_id)
         entry.registration_id = canonical_id
