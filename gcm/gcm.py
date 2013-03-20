@@ -13,7 +13,6 @@ class GCMMalformedJsonException(GCMException): pass
 class GCMConnectionException(GCMException): pass
 class GCMAuthenticationException(GCMException): pass
 class GCMTooManyRegIdsException(GCMException): pass
-class GCMNoCollapseKeyException(GCMException): pass
 class GCMInvalidTtlException(GCMException): pass
 
 # Exceptions from Google responses
@@ -80,7 +79,6 @@ class GCM(object):
 
         :return constructed dict or JSON payload
         :raises GCMInvalidTtlException: if time_to_live is invalid
-        :raises GCMNoCollapseKeyException: if collapse_key is missing when time_to_live is used
         """
 
         if time_to_live:
@@ -103,8 +101,6 @@ class GCM(object):
 
         if time_to_live:
             payload['time_to_live'] = time_to_live
-            if collapse_key is None:
-                raise GCMNoCollapseKeyException("collapse_key is required when time_to_live is provided")
 
         if collapse_key:
             payload['collapse_key'] = collapse_key
