@@ -179,8 +179,7 @@ class GCM(object):
         else:
             if len(response_lines) == 2:
                 return response_lines[1].split('=')[1]
-            else:
-                return
+            return
 
     def handle_json_response(self, response, registration_ids):
         errors = group_response(response, registration_ids, 'error')
@@ -197,8 +196,7 @@ class GCM(object):
     def extract_unsent_reg_ids(self, info):
         if 'errors' in info and 'Unavailable' in info['errors']:
             return info['errors']['Unavailable']
-        else:
-            return []
+        return []
 
     def plaintext_request(self, registration_id, data=None, collapse_key=None,
                             delay_while_idle=False, time_to_live=None, retries=5):
