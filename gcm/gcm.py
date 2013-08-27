@@ -94,9 +94,10 @@ class GCM(object):
         else:
             payload = {'registration_id': registration_ids}
             if data:
-                for k in data.keys():
-                    data['data.%s' % k] = data.pop(k)
-                payload.update(data)
+                plaintext_data = data.copy()
+                for k in plaintext_data.keys():
+                    plaintext_data['data.%s' % k] = plaintext_data.pop(k)
+                payload.update(plaintext_data)
 
         if delay_while_idle:
             payload['delay_while_idle'] = delay_while_idle
