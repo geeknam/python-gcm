@@ -184,6 +184,22 @@ class GCMTest(unittest.TestCase):
         res = self.gcm.handle_plaintext_response(response)
         self.assertEqual(res, '3456')
 
+    @patch('urllib2.urlopen')
+    def test_make_request_unicode(self, urlopen_mock):
+        """ Regression: Test make_request with unicode payload. """
+
+        # Set mock value for urlopen return value
+        urlopen_mock.return_value = MockResponse('blah')
+
+        data = {
+            'message': u'\x80abc'
+        }
+
+        self.assertEquals(
+            self.gcm.make_request(data, is_json=False),
+            'blah'
+        )
+
     def test_retry_plaintext_request_ok(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), 'id=123456789']
 
