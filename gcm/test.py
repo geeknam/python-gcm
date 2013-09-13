@@ -1,7 +1,7 @@
 import unittest
 from gcm import *
 import json
-from mock import MagicMock
+from mock import MagicMock, patch
 import time
 
 
@@ -13,6 +13,24 @@ def create_side_effect(returns):
             raise result
         return result
     return side_effect
+
+
+class MockResponse(object):
+    """
+    Mock urllib2.urlopen response.
+    http://stackoverflow.com/a/2276727
+    """
+    def __init__(self, resp_data, code=200, msg='OK'):
+        self.resp_data = resp_data
+        self.code = code
+        self.msg = msg
+        self.headers = {'content-type': 'text/xml; charset=utf-8'}
+
+    def read(self):
+        return self.resp_data
+
+    def getcode(self):
+        return self.code
 
 
 class GCMTest(unittest.TestCase):
