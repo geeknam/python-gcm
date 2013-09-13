@@ -185,20 +185,42 @@ class GCMTest(unittest.TestCase):
         self.assertEqual(res, '3456')
 
     @patch('urllib2.urlopen')
-    def test_make_request_unicode(self, urlopen_mock):
-        """ Regression: Test make_request with unicode payload. """
+    def test_make_request_plaintext(self, urlopen_mock):
+        """ Test plaintext make_request. """
 
         # Set mock value for urlopen return value
         urlopen_mock.return_value = MockResponse('blah')
 
+        # Perform request
+        response = self.gcm.make_request({'message': 'test'}, is_json=False)
+
+        # Get request (first positional argument to urlopen)
+        # Ref: http://www.voidspace.org.uk/python/mock/mock.html#mock.Mock.call_args
+        request = urlopen_mock.call_args[0][0]
+
+        # Test encoded data
+        encoded_data = request.get_data()
+        self.assertEquals(
+            encoded_data, 'message=test'
+        )
+
+        # Assert return value
+        self.assertEquals(
+            response,
+            'blah'
+        )
+
+
+    @patch('urllib2.urlopen')
+    def test_make_request_unicode(self, urlopen_mock):
+        """ Regression: Test make_request with unicode payload. """
+
+        # Unicode character in data
         data = {
             'message': u'\x80abc'
         }
 
-        self.assertEquals(
-            self.gcm.make_request(data, is_json=False),
-            'blah'
-        )
+        self.gcm.make_request(data, is_json=False)
 
     def test_retry_plaintext_request_ok(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), 'id=123456789']
