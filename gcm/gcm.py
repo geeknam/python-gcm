@@ -48,6 +48,25 @@ def group_response(response, registration_ids, key):
     return grouping
 
 
+def urlencode_utf8(params):
+    """
+    UTF-8 safe variant of urllib.urlencode.
+    http://stackoverflow.com/a/8152242
+    """
+
+    if hasattr(params, 'items'):
+        params = params.items()
+
+    params =  (
+        '='.join((
+            urllib.quote_plus(k.encode('utf8'), safe='/'),
+            urllib.quote_plus(v.encode('utf8'), safe='/')
+        )) for k, v in params
+    )
+
+    return '&'.join(params)
+
+
 class GCM(object):
 
     # Timeunit is milliseconds.
@@ -133,7 +152,7 @@ class GCM(object):
             headers['Content-Type'] = 'application/json'
 
         if not is_json:
-            data = urllib.urlencode(data)
+            data = urlencode_utf8(data)
         req = urllib2.Request(self.url, data, headers)
 
         try:
