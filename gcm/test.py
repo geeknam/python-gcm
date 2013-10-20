@@ -1,7 +1,7 @@
 import unittest
 from gcm import *
 import json
-from mock import MagicMock
+from mock import MagicMock, patch
 import time
 
 
@@ -13,6 +13,24 @@ def create_side_effect(returns):
             raise result
         return result
     return side_effect
+
+
+class MockResponse(object):
+    """
+    Mock urllib2.urlopen response.
+    http://stackoverflow.com/a/2276727
+    """
+    def __init__(self, resp_data, code=200, msg='OK'):
+        self.resp_data = resp_data
+        self.code = code
+        self.msg = msg
+        self.headers = {'content-type': 'text/xml; charset=utf-8'}
+
+    def read(self):
+        return self.resp_data
+
+    def getcode(self):
+        return self.code
 
 
 class GCMTest(unittest.TestCase):
@@ -165,6 +183,44 @@ class GCMTest(unittest.TestCase):
         response = 'id=23436576\nregistration_id=3456'
         res = self.gcm.handle_plaintext_response(response)
         self.assertEqual(res, '3456')
+
+    @patch('urllib2.urlopen')
+    def test_make_request_plaintext(self, urlopen_mock):
+        """ Test plaintext make_request. """
+
+        # Set mock value for urlopen return value
+        urlopen_mock.return_value = MockResponse('blah')
+
+        # Perform request
+        response = self.gcm.make_request({'message': 'test'}, is_json=False)
+
+        # Get request (first positional argument to urlopen)
+        # Ref: http://www.voidspace.org.uk/python/mock/mock.html#mock.Mock.call_args
+        request = urlopen_mock.call_args[0][0]
+
+        # Test encoded data
+        encoded_data = request.get_data()
+        self.assertEquals(
+            encoded_data, 'message=test'
+        )
+
+        # Assert return value
+        self.assertEquals(
+            response,
+            'blah'
+        )
+
+
+    @patch('urllib2.urlopen')
+    def test_make_request_unicode(self, urlopen_mock):
+        """ Regression: Test make_request with unicode payload. """
+
+        # Unicode character in data
+        data = {
+            'message': u'\x80abc'
+        }
+
+        self.gcm.make_request(data, is_json=False)
 
     def test_retry_plaintext_request_ok(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), 'id=123456789']
