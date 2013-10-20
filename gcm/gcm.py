@@ -102,7 +102,7 @@ class GCM(object):
         if delay_while_idle:
             payload['delay_while_idle'] = delay_while_idle
 
-        if time_to_live:
+        if time_to_live >= 0:
             payload['time_to_live'] = time_to_live
             if collapse_key is None:
                 raise GCMNoCollapseKeyException("collapse_key is required when time_to_live is provided")
