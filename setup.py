@@ -9,7 +9,7 @@ setup(
     author_email='nam@namis.me',
     url='http://blog.namis.me/python-gcm/',
     description='Python client for Google Cloud Messaging for Android (GCM)',
-    long_description=open('README.md').read(),
+    long_description=open('README.rst').read(),
     keywords='android gcm push notification google cloud messaging',
     tests_require = ['mock'],
 )
