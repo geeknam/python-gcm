@@ -80,10 +80,6 @@ class GCMTest(unittest.TestCase):
         for arg in ['registration_ids', 'data', 'collapse_key', 'delay_while_idle', 'time_to_live']:
             self.assertIn(arg, payload)
 
-    def test_require_collapse_key(self):
-        with self.assertRaises(GCMNoCollapseKeyException):
-            self.gcm.construct_payload(registration_ids='1234', data=self.data, time_to_live=3600)
-
     def test_json_payload(self):
         reg_ids = ['12', '145', '56']
         json_payload = self.gcm.construct_payload(registration_ids=reg_ids, data=self.data)
