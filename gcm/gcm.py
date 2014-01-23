@@ -255,7 +255,8 @@ class GCM(object):
         :param registration_ids: list of the registration ids
         :param data: dict mapping of key-value pairs of messages
         :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
-        :raises GCMMissingRegistrationException: if the list of registration_ids exceeds 1000 items
+        :raises GCMMissingRegistrationException: if the list of registration_ids is empty
+        :raises GCMTooManyRegIdsException: if the list of registration_ids exceeds 1000 items
         """
 
         if not registration_ids:
