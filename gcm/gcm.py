@@ -90,7 +90,7 @@ class GCM(object):
 
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
-                            delay_while_idle=False, time_to_live=None, is_json=True):
+                            delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False):
         """
         Construct the dictionary mapping of parameters.
         Encodes the dictionary into JSON if for json requests.
@@ -124,6 +124,9 @@ class GCM(object):
 
         if collapse_key:
             payload['collapse_key'] = collapse_key
+
+        if dry_run:
+            payload['dry_run'] = True
 
         if is_json:
             payload = json.dumps(payload)
@@ -215,7 +218,7 @@ class GCM(object):
         return []
 
     def plaintext_request(self, registration_id, data=None, collapse_key=None,
-                            delay_while_idle=False, time_to_live=None, retries=5):
+                            delay_while_idle=False, time_to_live=None, retries=5, dry_run=False):
         """
         Makes a plaintext request to GCM servers
 
@@ -230,7 +233,7 @@ class GCM(object):
 
         payload = self.construct_payload(
             registration_id, data, collapse_key,
-            delay_while_idle, time_to_live, False
+            delay_while_idle, time_to_live, False, dry_run
         )
 
         attempt = 0
@@ -248,7 +251,7 @@ class GCM(object):
         raise IOError("Could not make request after %d attempts" % attempt)
 
     def json_request(self, registration_ids, data=None, collapse_key=None,
-                        delay_while_idle=False, time_to_live=None, retries=5):
+                        delay_while_idle=False, time_to_live=None, retries=5, dry_run=False):
         """
         Makes a JSON request to GCM servers
 
@@ -268,7 +271,7 @@ class GCM(object):
         for attempt in range(retries):
             payload = self.construct_payload(
                 registration_ids, data, collapse_key,
-                delay_while_idle, time_to_live
+                delay_while_idle, time_to_live, dry_run
             )
             response = self.make_request(payload, is_json=True)
             info = self.handle_json_response(response, registration_ids)

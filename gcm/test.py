@@ -74,10 +74,10 @@ class GCMTest(unittest.TestCase):
     def test_construct_payload(self):
         res = self.gcm.construct_payload(
             registration_ids=['1', '2'], data=self.data, collapse_key='foo',
-            delay_while_idle=True, time_to_live=3600, is_json=True
+            delay_while_idle=True, time_to_live=3600, is_json=True, dry_run = True
         )
         payload = json.loads(res)
-        for arg in ['registration_ids', 'data', 'collapse_key', 'delay_while_idle', 'time_to_live']:
+        for arg in ['registration_ids', 'data', 'collapse_key', 'delay_while_idle', 'time_to_live', 'dry_run']:
             self.assertIn(arg, payload)
 
     def test_json_payload(self):
