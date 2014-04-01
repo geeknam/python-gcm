@@ -271,7 +271,7 @@ class GCM(object):
         for attempt in range(retries):
             payload = self.construct_payload(
                 registration_ids, data, collapse_key,
-                delay_while_idle, time_to_live, dry_run
+                delay_while_idle, time_to_live, True, dry_run
             )
             response = self.make_request(payload, is_json=True)
             info = self.handle_json_response(response, registration_ids)
