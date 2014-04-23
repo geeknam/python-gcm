@@ -4,6 +4,10 @@ python-gcm
 .. image:: https://secure.travis-ci.org/geeknam/python-gcm.png?branch=master
    :alt: Build Status
    :target: http://travis-ci.org/geeknam/python-gcm
+.. image:: https://landscape.io/github/geeknam/python-gcm/master/landscape.png
+   :target: https://landscape.io/github/geeknam/python-gcm/master
+   :alt: Code Health
+
 
 Python client for Google Cloud Messaging for Android (GCM)
 
