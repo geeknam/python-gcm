@@ -29,22 +29,16 @@ def group_response(response, registration_ids, key):
     # Pair up results and reg_ids
     mapping = zip(registration_ids, response['results'])
     # Filter by key
-    filtered = filter(lambda x: key in x[1], mapping)
-    # Only consider the value in the dict
-    tupled = [(s[0], s[1][key]) for s in filtered]
+    filtered = ((reg_id, res[key]) for reg_id, res in mapping if key in res)
     # Grouping of errors and mapping of ids
     if key is 'registration_id':
-        grouping = {}
-        for k, v in tupled:
-            grouping[k] = v
+        grouping = dict(filtered)
     else:
         grouping = defaultdict(list)
-        for k, v in tupled:
+        for k, v in filtered:
             grouping[v].append(k)
 
-    if len(grouping) == 0:
-        return
-    return grouping
+    return grouping or None
 
 
 def urlencode_utf8(params):
@@ -56,7 +50,7 @@ def urlencode_utf8(params):
     if hasattr(params, 'items'):
         params = params.items()
 
-    params =  (
+    params = (
         '='.join((
             urllib.quote_plus(k.encode('utf8'), safe='/'),
             urllib.quote_plus(v.encode('utf8'), safe='/')
@@ -69,8 +63,8 @@ def urlencode_utf8(params):
 class GCM(object):
 
     # Timeunit is milliseconds.
-    BACKOFF_INITIAL_DELAY = 1000;
-    MAX_BACKOFF_DELAY = 1024000;
+    BACKOFF_INITIAL_DELAY = 1000
+    MAX_BACKOFF_DELAY = 1024000
 
     def __init__(self, api_key, url=GCM_URL, proxy=None):
         """ api_key : google api key
@@ -80,9 +74,9 @@ class GCM(object):
         self.api_key = api_key
         self.url = url
         if proxy:
-            if isinstance(proxy,basestring):
+            if isinstance(proxy, basestring):
                 protocol = url.split(':')[0]
-                proxy={protocol:proxy}
+                proxy = {protocol: proxy}
 
             auth = urllib2.HTTPBasicAuthHandler()
             opener = urllib2.build_opener(urllib2.ProxyHandler(proxy), auth, urllib2.HTTPHandler)
