@@ -129,7 +129,8 @@ class GCM(object):
         """
 
         if time_to_live:
-            if time_to_live > 2419200 or time_to_live < 0:
+            four_weeks_in_secs = 2419200
+            if not (0 <= time_to_live <= four_weeks_in_secs):
                 raise GCMInvalidTtlException("Invalid time to live value")
 
         if is_json:
@@ -147,7 +148,7 @@ class GCM(object):
         if delay_while_idle:
             payload['delay_while_idle'] = delay_while_idle
 
-        if time_to_live >= 0:
+        if time_to_live:
             payload['time_to_live'] = time_to_live
 
         if collapse_key:
