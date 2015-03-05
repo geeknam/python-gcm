@@ -81,7 +81,7 @@ Error handling
    if 'errors' in response:
        for error, reg_ids in response['errors'].items():
            # Check for errors and act accordingly
-           if error is 'NotRegistered':
+           if error in ['NotRegistered', 'InvalidRegistration']:
                # Remove reg_ids from database
                for reg_id in reg_ids:
                    entity.filter(registration_id=reg_id).delete()
