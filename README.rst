@@ -25,6 +25,7 @@ Features
 * Resend messages using exponential back-off
 * Proxy support
 * Easily handle errors
+* Uses `requests` from version > 0.2
 
 Usage
 ------------

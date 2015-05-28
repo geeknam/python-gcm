@@ -1,5 +1,5 @@
 import urllib
-import urllib2
+import requests
 import json
 from collections import defaultdict
 import time
@@ -99,6 +99,8 @@ class GCM(object):
     # Timeunit is milliseconds.
     BACKOFF_INITIAL_DELAY = 1000
     MAX_BACKOFF_DELAY = 1024000
+    # TTL in seconds
+    GCM_TTL = 2419200
 
     def __init__(self, api_key, url=GCM_URL, proxy=None):
         """ api_key : google api key
@@ -107,18 +109,20 @@ class GCM(object):
         """
         self.api_key = api_key
         self.url = url
-        if proxy:
-            if isinstance(proxy, basestring):
-                protocol = url.split(':')[0]
-                proxy = {protocol: proxy}
 
-            auth = urllib2.HTTPBasicAuthHandler()
-            opener = urllib2.build_opener(
-                urllib2.ProxyHandler(proxy), auth, urllib2.HTTPHandler)
-            urllib2.install_opener(opener)
+        if isinstance(proxy, basestring):
+            protocol = url.split(':')[0]
+            self.proxy = {protocol: proxy}
+        else:
+            self.proxy = proxy
+
+        self.headers = {
+            'Authorization': 'key=%s' % self.api_key,
+        }
+
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
-                          delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False):
+        delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False):
         """
         Construct the dictionary mapping of parameters.
         Encodes the dictionary into JSON if for json requests.
@@ -129,8 +133,7 @@ class GCM(object):
         """
 
         if time_to_live:
-            four_weeks_in_secs = 2419200
-            if not (0 <= time_to_live <= four_weeks_in_secs):
+            if not (0 <= time_to_live <= self.GCM_TTL):
                 raise GCMInvalidTtlException("Invalid time to live value")
 
         if is_json:
@@ -172,39 +175,38 @@ class GCM(object):
         :raises GCMConnectionException: if GCM is screwed
         """
 
-        headers = {
-            'Authorization': 'key=%s' % self.api_key,
-        }
-        # Default Content-Type is defaulted to
+        # Default Content-Type is
         # application/x-www-form-urlencoded;charset=UTF-8
         if is_json:
-            headers['Content-Type'] = 'application/json'
+            self.headers['Content-Type'] = 'application/json'
 
         if not is_json:
             data = urlencode_utf8(data)
-        req = urllib2.Request(self.url, data, headers)
 
-        try:
-            response = urllib2.urlopen(req).read()
-        except urllib2.HTTPError as e:
-            if e.code == 400:
-                raise GCMMalformedJsonException(
-                    "The request could not be parsed as JSON")
-            elif e.code == 401:
-                raise GCMAuthenticationException(
-                    "There was an error authenticating the sender account")
-            elif e.code == 503:
-                raise GCMUnavailableException("GCM service is unavailable")
+        response = requests.post(
+            self.url, data=data, headers=self.headers,
+            proxies=self.proxy
+        )
+        # Successful response
+        if response.status_code == 200:
+            if is_json:
+                response = response.json()
             else:
-                error = "GCM service error: %d" % e.code
-                raise GCMUnavailableException(error)
-        except urllib2.URLError as e:
-            raise GCMConnectionException(
-                "There was an internal error in the GCM server while trying to process the request")
+                response = response.content
+            return response
 
-        if is_json:
-            response = json.loads(response)
-        return response
+        # Failures
+        if response.status_code == 400:
+            raise GCMMalformedJsonException(
+                "The request could not be parsed as JSON")
+        elif response.status_code == 401:
+            raise GCMAuthenticationException(
+                "There was an error authenticating the sender account")
+        elif response.status_code == 503:
+            raise GCMUnavailableException("GCM service is unavailable")
+        else:
+            error = "GCM service error: %d" % response.status_code
+            raise GCMUnavailableException(error)
 
     def raise_error(self, error):
         if error == 'InvalidRegistration':

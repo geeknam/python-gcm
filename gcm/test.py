@@ -15,24 +15,6 @@ def create_side_effect(returns):
     return side_effect
 
 
-class MockResponse(object):
-    """
-    Mock urllib2.urlopen response.
-    http://stackoverflow.com/a/2276727
-    """
-    def __init__(self, resp_data, code=200, msg='OK'):
-        self.resp_data = resp_data
-        self.code = code
-        self.msg = msg
-        self.headers = {'content-type': 'text/xml; charset=utf-8'}
-
-    def read(self):
-        return self.resp_data
-
-    def getcode(self):
-        return self.code
-
-
 class GCMTest(unittest.TestCase):
 
     def setUp(self):
@@ -90,7 +72,9 @@ class GCMTest(unittest.TestCase):
         self.assertEqual(payload['registration_ids'], reg_ids)
 
     def test_plaintext_payload(self):
-        result = self.gcm.construct_payload(registration_ids='1234', data=self.data, is_json=False)
+        result = self.gcm.construct_payload(
+            registration_ids='1234', data=self.data, is_json=False
+        )
 
         self.assertIn('registration_id', result)
         self.assertIn('data.param1', result)
@@ -180,43 +164,45 @@ class GCMTest(unittest.TestCase):
         res = self.gcm.handle_plaintext_response(response)
         self.assertEqual(res, '3456')
 
-    @patch('urllib2.urlopen')
-    def test_make_request_plaintext(self, urlopen_mock):
+    @patch('requests.post')
+    def test_make_request_plaintext(self, mock_request):
         """ Test plaintext make_request. """
 
-        # Set mock value for urlopen return value
-        urlopen_mock.return_value = MockResponse('blah')
-
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.content = "OK"
         # Perform request
-        response = self.gcm.make_request({'message': 'test'}, is_json=False)
-
-        # Get request (first positional argument to urlopen)
-        # Ref: http://www.voidspace.org.uk/python/mock/mock.html#mock.Mock.call_args
-        request = urlopen_mock.call_args[0][0]
-
-        # Test encoded data
-        encoded_data = request.get_data()
-        self.assertEquals(
-            encoded_data, 'message=test'
+        response = self.gcm.make_request(
+            {'message': 'test'}, is_json=False
         )
+        self.assertEqual(response, "OK")
 
-        # Assert return value
-        self.assertEquals(
-            response,
-            'blah'
-        )
+        mock_request.return_value.status_code = 401
+        with self.assertRaises(GCMAuthenticationException):
+            response = self.gcm.make_request(
+                {'message': 'test'}, is_json=False
+            )
 
+        mock_request.return_value.status_code = 503
+        with self.assertRaises(GCMUnavailableException):
+            response = self.gcm.make_request(
+                {'message': 'test'}, is_json=False
+            )
 
-    @patch('urllib2.urlopen')
-    def test_make_request_unicode(self, urlopen_mock):
-        """ Regression: Test make_request with unicode payload. """
-
-        # Unicode character in data
+    @patch('requests.api.request')
+    def test_make_request_unicode(self, mock_request):
+        """ Test make_request with unicode payload. """
         data = {
             'message': u'\x80abc'
         }
-
-        self.gcm.make_request(data, is_json=False)
+        try:
+            self.gcm.make_request(data, is_json=False)
+        except:
+            pass
+        self.assertTrue(mock_request.called)
+        self.assertEqual(
+            mock_request.call_args[1]['data'],
+            'message=%C2%80abc'
+        )
 
     def test_retry_plaintext_request_ok(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), 'id=123456789']
