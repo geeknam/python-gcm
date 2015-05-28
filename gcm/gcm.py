@@ -307,7 +307,6 @@ class GCM(object):
             raise GCMTooManyRegIdsException(
                 "Exceded number of registration_ids")
 
-        attempt = 0
         backoff = self.BACKOFF_INITIAL_DELAY
         for attempt in range(retries):
             payload = self.construct_payload(
@@ -326,5 +325,4 @@ class GCM(object):
                     backoff *= 2
             else:
                 break
-
         return info
