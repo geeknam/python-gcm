@@ -90,7 +90,6 @@ class GCMTest(unittest.TestCase):
         result = self.gcm.construct_payload(
             registration_ids='1234', data=self.data, is_json=False
         )
-
         self.assertIn('registration_id', result)
         self.assertIn('data.param1', result)
         self.assertIn('data.param2', result)
@@ -180,6 +179,20 @@ class GCMTest(unittest.TestCase):
         self.assertEqual(res, '3456')
 
     @patch('requests.post')
+    def test_make_request_header(self, mock_request):
+        """ Test plaintext make_request. """
+
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.content = "OK"
+        # Perform request
+        self.gcm.make_request(
+            {'message': 'test'}, is_json=True
+        )
+        self.assertEqual(self.gcm.headers['Content-Type'],
+            'application/json'
+        )
+
+    @patch('requests.post')
     def test_make_request_plaintext(self, mock_request):
         """ Test plaintext make_request. """
 
@@ -190,6 +203,12 @@ class GCMTest(unittest.TestCase):
             {'message': 'test'}, is_json=False
         )
         self.assertEqual(response, "OK")
+
+        mock_request.return_value.status_code = 400
+        with self.assertRaises(GCMMalformedJsonException):
+            response = self.gcm.make_request(
+                {'message': 'test'}, is_json=False
+            )
 
         mock_request.return_value.status_code = 401
         with self.assertRaises(GCMAuthenticationException):
