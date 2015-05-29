@@ -191,6 +191,8 @@ class GCMTest(unittest.TestCase):
         self.assertEqual(self.gcm.headers['Content-Type'],
             'application/json'
         )
+        self.assertTrue(mock_request.return_value.json.called)
+
 
     @patch('requests.post')
     def test_make_request_plaintext(self, mock_request):
