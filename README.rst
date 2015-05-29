@@ -1,6 +1,9 @@
 python-gcm
 ======================
-
+..image:: https://img.shields.io/pypi/v/python-gcm.svg
+   :target: https://pypi.python.org/pypi/python-gcm
+.. image:: https://img.shields.io/pypi/dm/python-gcm.svg
+   :target: https://pypi.python.org/pypi/python-gcm
 .. image:: https://secure.travis-ci.org/geeknam/python-gcm.png?branch=master
    :alt: Build Status
    :target: http://travis-ci.org/geeknam/python-gcm
