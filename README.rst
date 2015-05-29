@@ -1,6 +1,6 @@
 python-gcm
 ======================
-..image:: https://img.shields.io/pypi/v/python-gcm.svg
+.. image:: https://img.shields.io/pypi/v/python-gcm.svg
    :target: https://pypi.python.org/pypi/python-gcm
 .. image:: https://img.shields.io/pypi/dm/python-gcm.svg
    :target: https://pypi.python.org/pypi/python-gcm

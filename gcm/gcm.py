@@ -6,7 +6,7 @@ import random
 
 try:
     from urllib import quote_plus
-except AttributeError:
+except ImportError:
     from urllib.parse import quote_plus
 
 
