@@ -12,7 +12,8 @@ python-gcm
    :alt: Code Health
 .. image:: https://coveralls.io/repos/geeknam/python-gcm/badge.svg?branch=master
    :target: https://coveralls.io/r/geeknam/python-gcm
-
+.. image:: https://img.shields.io/gratipay/geeknam.svg
+   :target: https://gratipay.com/geeknam/
 
 Python client for Google Cloud Messaging for Android (GCM)
 
