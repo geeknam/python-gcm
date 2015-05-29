@@ -138,17 +138,16 @@ class GCM(object):
             if not (0 <= time_to_live <= self.GCM_TTL):
                 raise GCMInvalidTtlException("Invalid time to live value")
 
+        payload = {}
         if is_json:
-            payload = {'registration_ids': registration_ids}
+            payload['registration_ids'] = registration_ids
             if data:
                 payload['data'] = data
         else:
-            payload = {'registration_id': registration_ids}
+            payload['registration_id'] = registration_ids
             if data:
-                plaintext_data = data.copy()
-                for k in plaintext_data.keys():
-                    plaintext_data['data.%s' % k] = plaintext_data.pop(k)
-                payload.update(plaintext_data)
+                for key, value in data.items():
+                    payload['data.%s' % key] = value
 
         if delay_while_idle:
             payload['delay_while_idle'] = delay_while_idle
