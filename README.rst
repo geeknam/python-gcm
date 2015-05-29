@@ -1,13 +1,19 @@
 python-gcm
 ======================
-
+.. image:: https://img.shields.io/pypi/v/python-gcm.svg
+   :target: https://pypi.python.org/pypi/python-gcm
+.. image:: https://img.shields.io/pypi/dm/python-gcm.svg
+   :target: https://pypi.python.org/pypi/python-gcm
 .. image:: https://secure.travis-ci.org/geeknam/python-gcm.png?branch=master
    :alt: Build Status
    :target: http://travis-ci.org/geeknam/python-gcm
 .. image:: https://landscape.io/github/geeknam/python-gcm/master/landscape.png
    :target: https://landscape.io/github/geeknam/python-gcm/master
    :alt: Code Health
-
+.. image:: https://coveralls.io/repos/geeknam/python-gcm/badge.svg?branch=master
+   :target: https://coveralls.io/r/geeknam/python-gcm
+.. image:: https://img.shields.io/gratipay/geeknam.svg
+   :target: https://gratipay.com/geeknam/
 
 Python client for Google Cloud Messaging for Android (GCM)
 
@@ -25,6 +31,7 @@ Features
 * Resend messages using exponential back-off
 * Proxy support
 * Easily handle errors
+* Uses `requests` from version > 0.2
 
 Usage
 ------------
