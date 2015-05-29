@@ -1,9 +1,14 @@
-import urllib
 import requests
 import json
 from collections import defaultdict
 import time
 import random
+
+try:
+    from urllib import quote_plus
+except AttributeError:
+    from urllib.parse import quote_plus
+
 
 GCM_URL = 'https://android.googleapis.com/gcm/send'
 
@@ -80,17 +85,14 @@ def urlencode_utf8(params):
     UTF-8 safe variant of urllib.urlencode.
     http://stackoverflow.com/a/8152242
     """
-
     if hasattr(params, 'items'):
         params = params.items()
-
     params = (
         '='.join((
-            urllib.quote_plus(k.encode('utf8'), safe='/'),
-            urllib.quote_plus(v.encode('utf8'), safe='/')
+            quote_plus(k.encode('utf8'), safe='/'),
+            quote_plus(v.encode('utf8'), safe='/')
         )) for k, v in params
     )
-
     return '&'.join(params)
 
 
