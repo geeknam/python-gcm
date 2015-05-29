@@ -110,7 +110,7 @@ class GCM(object):
         self.api_key = api_key
         self.url = url
 
-        if isinstance(proxy, basestring):
+        if isinstance(proxy, str):
             protocol = url.split(':')[0]
             self.proxy = {protocol: proxy}
         else:
