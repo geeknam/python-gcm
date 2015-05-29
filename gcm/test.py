@@ -53,6 +53,21 @@ class GCMTest(unittest.TestCase):
         }
         time.sleep = MagicMock()
 
+    def test_gcm_proxy(self):
+        self.gcm = GCM('123api', proxy='http://domain.com:8888')
+        self.assertEqual(self.gcm.proxy, {
+            'https': 'http://domain.com:8888'
+        })
+
+        self.gcm = GCM('123api', proxy={
+            'http': 'http://domain.com:8888',
+            'https': 'https://domain.com:8888'
+        })
+        self.assertEqual(self.gcm.proxy, {
+            'http': 'http://domain.com:8888',
+            'https': 'https://domain.com:8888'
+        })
+
     def test_construct_payload(self):
         res = self.gcm.construct_payload(
             registration_ids=['1', '2'], data=self.data, collapse_key='foo',
