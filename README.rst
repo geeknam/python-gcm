@@ -1,5 +1,9 @@
 python-gcm
 ======================
+
+.. image:: https://badges.gitter.im/Join%20Chat.svg
+   :alt: Join the chat at https://gitter.im/geeknam/python-gcm
+   :target: https://gitter.im/geeknam/python-gcm?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
 .. image:: https://img.shields.io/pypi/v/python-gcm.svg
    :target: https://pypi.python.org/pypi/python-gcm
 .. image:: https://img.shields.io/pypi/dm/python-gcm.svg
