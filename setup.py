@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='python-gcm',
@@ -11,8 +11,6 @@ setup(
     description='Python client for Google Cloud Messaging for Android (GCM)',
     long_description=open('README.rst').read(),
     keywords='android gcm push notification google cloud messaging',
-    install_requires=[
-        'requests',
-    ],
-    tests_require = ['mock'],
+    install_requires=['requests'],
+    tests_require=['mock'],
 )
