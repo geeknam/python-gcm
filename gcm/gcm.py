@@ -118,13 +118,10 @@ class GCM(object):
         else:
             self.proxy = proxy
 
-        self.headers = {
-            'Authorization': 'key=%s' % self.api_key,
-        }
-
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
-        delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False):
+        delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False,
+        restricted_package_name=None):
         """
         Construct the dictionary mapping of parameters.
         Encodes the dictionary into JSON if for json requests.
@@ -161,6 +158,9 @@ class GCM(object):
         if dry_run:
             payload['dry_run'] = True
 
+        if restricted_package_name:
+            payload['restricted_package_name'] = restricted_package_name
+
         if is_json:
             payload = json.dumps(payload)
 
@@ -178,14 +178,17 @@ class GCM(object):
 
         # Default Content-Type is
         # application/x-www-form-urlencoded;charset=UTF-8
+        headers = {
+            'Authorization': 'key=%s' % self.api_key,
+        }
         if is_json:
-            self.headers['Content-Type'] = 'application/json'
+            headers['Content-Type'] = 'application/json'
 
         if not is_json:
             data = urlencode_utf8(data)
 
         response = requests.post(
-            self.url, data=data, headers=self.headers,
+            self.url, data=data, headers=headers,
             proxies=self.proxy
         )
         # Successful response
@@ -258,7 +261,8 @@ class GCM(object):
         return []
 
     def plaintext_request(self, registration_id, data=None, collapse_key=None,
-                          delay_while_idle=False, time_to_live=None, retries=5, dry_run=False):
+                          delay_while_idle=False, time_to_live=None, retries=5,
+                          dry_run=False, restricted_package_name=None):
         """
         Makes a plaintext request to GCM servers
 
@@ -272,8 +276,14 @@ class GCM(object):
             raise GCMMissingRegistrationException("Missing registration_id")
 
         payload = self.construct_payload(
-            registration_id, data, collapse_key,
-            delay_while_idle, time_to_live, False, dry_run
+            registration_id,
+            data=data,
+            collapse_key=collapse_key,
+            delay_while_idle=delay_while_idle,
+            time_to_live=time_to_live,
+            is_json=False,
+            dry_run=dry_run,
+            restricted_package_name=restricted_package_name,
         )
 
         attempt = 0
@@ -291,7 +301,8 @@ class GCM(object):
         raise IOError("Could not make request after %d attempts" % attempt)
 
     def json_request(self, registration_ids, data=None, collapse_key=None,
-                     delay_while_idle=False, time_to_live=None, retries=5, dry_run=False):
+                     delay_while_idle=False, time_to_live=None, retries=5,
+                     dry_run=False, restricted_package_name=None):
         """
         Makes a JSON request to GCM servers
 
@@ -308,12 +319,20 @@ class GCM(object):
             raise GCMTooManyRegIdsException(
                 "Exceded number of registration_ids")
 
+        payload = self.construct_payload(
+            registration_ids,
+            data=data,
+            collapse_key=collapse_key,
+            delay_while_idle=delay_while_idle,
+            time_to_live=time_to_live,
+            is_json=True,
+            dry_run=dry_run,
+            restricted_package_name=restricted_package_name,
+        )
+
         backoff = self.BACKOFF_INITIAL_DELAY
         for attempt in range(retries):
-            payload = self.construct_payload(
-                registration_ids, data, collapse_key,
-                delay_while_idle, time_to_live, True, dry_run
-            )
+
             response = self.make_request(payload, is_json=True)
             info = self.handle_json_response(response, registration_ids)
 
