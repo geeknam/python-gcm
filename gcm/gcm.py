@@ -118,10 +118,6 @@ class GCM(object):
         else:
             self.proxy = proxy
 
-        self.headers = {
-            'Authorization': 'key=%s' % self.api_key,
-        }
-
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
         delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False,
@@ -182,14 +178,17 @@ class GCM(object):
 
         # Default Content-Type is
         # application/x-www-form-urlencoded;charset=UTF-8
+        headers = {
+            'Authorization': 'key=%s' % self.api_key,
+        }
         if is_json:
-            self.headers['Content-Type'] = 'application/json'
+            headers['Content-Type'] = 'application/json'
 
         if not is_json:
             data = urlencode_utf8(data)
 
         response = requests.post(
-            self.url, data=data, headers=self.headers,
+            self.url, data=data, headers=headers,
             proxies=self.proxy
         )
         # Successful response

@@ -188,9 +188,6 @@ class GCMTest(unittest.TestCase):
         self.gcm.make_request(
             {'message': 'test'}, is_json=True
         )
-        self.assertEqual(self.gcm.headers['Content-Type'],
-            'application/json'
-        )
         self.assertTrue(mock_request.return_value.json.called)
 
 
