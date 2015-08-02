@@ -121,6 +121,3 @@ Read more on response errors `here
 * GCMMessageTooBigException
 * GCMInvalidRegistrationException
 * GCMUnavailableException
-
-.. image:: http://t.qkme.me/35gjhs.jpg
-   :alt: Gotta catch them all
