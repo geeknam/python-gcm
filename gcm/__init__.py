@@ -1,4 +1,1 @@
-
-import gcm
-
-GCM = gcm.GCM
+from .gcm import GCM
