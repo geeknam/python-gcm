@@ -10,7 +10,7 @@ except ImportError:
     from urllib.parse import quote_plus
 
 
-GCM_URL = 'https://android.googleapis.com/gcm/send'
+GCM_URL = 'https://gcm-http.googleapis.com/gcm/send'
 
 
 class GCMException(Exception):
