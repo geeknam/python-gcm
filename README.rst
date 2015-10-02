@@ -40,7 +40,7 @@ Features
 Usage
 ------------
 
-RTFM `here <http://developer.android.com/guide/google/gcm/gcm.html>`__
+RTFM about `Google Cloud Messaging <https://developers.google.com/cloud-messaging>`__
         
 Basic
 
@@ -106,7 +106,7 @@ Error handling
 Exceptions
 ------------
 Read more on response errors `here
-<http://developer.android.com/guide/google/gcm/gcm.html#success>`__
+<https://developers.google.com/cloud-messaging/http-server-ref#error-codes>`__
 
 
 * GCMMalformedJsonException
