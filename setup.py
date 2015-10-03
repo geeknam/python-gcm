@@ -13,4 +13,5 @@ setup(
     keywords='android gcm push notification google cloud messaging',
     install_requires=['requests'],
     tests_require=['mock'],
+    test_suite='gcm.test',
 )

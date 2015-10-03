@@ -121,7 +121,7 @@ class GCM(object):
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
         delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False,
-        restricted_package_name=None):
+        restricted_package_name=None, priority=None):
         """
         Construct the dictionary mapping of parameters.
         Encodes the dictionary into JSON if for json requests.
@@ -160,6 +160,9 @@ class GCM(object):
 
         if restricted_package_name:
             payload['restricted_package_name'] = restricted_package_name
+
+        if priority:
+            payload['priority'] = priority
 
         if is_json:
             payload = json.dumps(payload)
@@ -262,7 +265,7 @@ class GCM(object):
 
     def plaintext_request(self, registration_id, data=None, collapse_key=None,
                           delay_while_idle=False, time_to_live=None, retries=5,
-                          dry_run=False, restricted_package_name=None):
+                          dry_run=False, restricted_package_name=None, priority=None):
         """
         Makes a plaintext request to GCM servers
 
@@ -284,6 +287,7 @@ class GCM(object):
             is_json=False,
             dry_run=dry_run,
             restricted_package_name=restricted_package_name,
+            priority=priority,
         )
 
         attempt = 0
@@ -302,7 +306,7 @@ class GCM(object):
 
     def json_request(self, registration_ids, data=None, collapse_key=None,
                      delay_while_idle=False, time_to_live=None, retries=5,
-                     dry_run=False, restricted_package_name=None):
+                     dry_run=False, restricted_package_name=None, priority=None):
         """
         Makes a JSON request to GCM servers
 
@@ -328,6 +332,7 @@ class GCM(object):
             is_json=True,
             dry_run=dry_run,
             restricted_package_name=restricted_package_name,
+            priority=priority,
         )
 
         backoff = self.BACKOFF_INITIAL_DELAY
