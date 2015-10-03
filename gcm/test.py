@@ -77,6 +77,18 @@ class GCMTest(unittest.TestCase):
         for arg in ['registration_ids', 'data', 'collapse_key', 'delay_while_idle', 'time_to_live', 'dry_run']:
             self.assertIn(arg, payload)
 
+        self.assertNotIn('priority', payload)
+
+    def test_construct_payload_with_priority(self):
+        res = self.gcm.construct_payload(
+            registration_ids=['1', '2'], data=self.data, collapse_key='foo',
+            delay_while_idle=True, time_to_live=3600, is_json=True, dry_run=True,
+            priority=10
+        )
+        payload = json.loads(res)
+        for arg in ['registration_ids', 'data', 'collapse_key', 'delay_while_idle', 'time_to_live', 'dry_run', 'priority']:
+            self.assertIn(arg, payload)
+
     def test_json_payload(self):
         reg_ids = ['12', '145', '56']
         json_payload = self.gcm.construct_payload(registration_ids=reg_ids, data=self.data)
