@@ -39,10 +39,6 @@ class GCMInvalidTtlException(GCMException):
 # Exceptions from Google responses
 
 
-class GCMMissingRegistrationException(GCMException):
-    pass
-
-
 class GCMMismatchSenderIdException(GCMException):
     pass
 
@@ -125,6 +121,10 @@ class PlaintextPayload(Payload):
     @property
     def body(self):
         data = self.__dict__.pop('data')
+        if 'registration_id' not in self.__dict__:
+            self.__dict__['registration_id'] = self.__dict__.pop(
+                'registration_ids', None
+            )
         for key, value in data.items():
             self.__dict__['data.%s' % key] = value
         return self.__dict__
@@ -168,7 +168,7 @@ class GCM(object):
         :raises GCMInvalidTtlException: if time_to_live is invalid
         """
 
-        is_json = kwargs.pop('is_json')
+        is_json = kwargs.pop('is_json', True)
 
         if is_json:
             payload = JsonPayload(**kwargs).body
@@ -271,79 +271,49 @@ class GCM(object):
             return info['errors']['Unavailable']
         return []
 
-    def plaintext_request(self, registration_id, data=None, collapse_key=None,
-                          delay_while_idle=False, time_to_live=None, retries=5,
-                          dry_run=False, restricted_package_name=None, priority=None):
+    def plaintext_request(self, **kwargs):
         """
         Makes a plaintext request to GCM servers
 
         :param registration_id: string of the registration id
         :param data: dict mapping of key-value pairs of messages
         :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
-        :raises GCMMissingRegistrationException: if registration_id is not provided
         """
 
-        if not registration_id:
-            raise GCMMissingRegistrationException("Missing registration_id")
-
-        payload = self.construct_payload(
-            registration_id,
-            data=data,
-            collapse_key=collapse_key,
-            delay_while_idle=delay_while_idle,
-            time_to_live=time_to_live,
-            is_json=False,
-            dry_run=dry_run,
-            restricted_package_name=restricted_package_name,
-            priority=priority,
-        )
+        kwargs['is_json'] = False
+        retries = kwargs.pop('retries', 5)
+        payload = self.construct_payload(**kwargs)
 
         attempt = 0
         backoff = self.BACKOFF_INITIAL_DELAY
-        for attempt in range(retries):
-            try:
-                response = self.make_request(payload, is_json=False)
-                return self.handle_plaintext_response(response)
-            except GCMUnavailableException:
-                sleep_time = backoff / 2 + random.randrange(backoff)
-                time.sleep(float(sleep_time) / 1000)
-                if 2 * backoff < self.MAX_BACKOFF_DELAY:
-                    backoff *= 2
+
+        if retries:
+            for attempt in range(retries):
+                try:
+                    response = self.make_request(payload, is_json=False)
+                    return self.handle_plaintext_response(response)
+                except GCMUnavailableException:
+                    sleep_time = backoff / 2 + random.randrange(backoff)
+                    time.sleep(float(sleep_time) / 1000)
+                    if 2 * backoff < self.MAX_BACKOFF_DELAY:
+                        backoff *= 2
 
         raise IOError("Could not make request after %d attempts" % attempt)
 
-    def json_request(self, registration_ids, data=None, collapse_key=None,
-                     delay_while_idle=False, time_to_live=None, retries=5,
-                     dry_run=False, restricted_package_name=None, priority=None):
+    def json_request(self, **kwargs):
         """
         Makes a JSON request to GCM servers
 
         :param registration_ids: list of the registration ids
         :param data: dict mapping of key-value pairs of messages
         :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
-        :raises GCMMissingRegistrationException: if the list of registration_ids is empty
-        :raises GCMTooManyRegIdsException: if the list of registration_ids exceeds 1000 items
         """
-
-        if not registration_ids:
-            raise GCMMissingRegistrationException("Missing registration_ids")
-        if len(registration_ids) > 1000:
-            raise GCMTooManyRegIdsException(
-                "Exceded number of registration_ids")
-
-        payload = self.construct_payload(
-            registration_ids,
-            data=data,
-            collapse_key=collapse_key,
-            delay_while_idle=delay_while_idle,
-            time_to_live=time_to_live,
-            is_json=True,
-            dry_run=dry_run,
-            restricted_package_name=restricted_package_name,
-            priority=priority,
-        )
+        retries = kwargs.pop('retries', 5)
+        payload = self.construct_payload(**kwargs)
 
         backoff = self.BACKOFF_INITIAL_DELAY
+
+        registration_ids = kwargs['registration_ids']
         for attempt in range(retries):
 
             response = self.make_request(payload, is_json=True)

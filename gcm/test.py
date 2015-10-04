@@ -106,19 +106,6 @@ class GCMTest(unittest.TestCase):
         self.assertIn('data.param1', result)
         self.assertIn('data.param2', result)
 
-    def test_limit_reg_ids(self):
-        reg_ids = range(1003)
-        self.assertTrue(len(reg_ids) > 1000)
-        with self.assertRaises(GCMTooManyRegIdsException):
-            self.gcm.json_request(registration_ids=reg_ids, data=self.data)
-
-    def test_missing_reg_id(self):
-        with self.assertRaises(GCMMissingRegistrationException):
-            self.gcm.json_request(registration_ids=[], data=self.data)
-
-        with self.assertRaises(GCMMissingRegistrationException):
-            self.gcm.plaintext_request(registration_id=None, data=self.data)
-
     def test_invalid_ttl(self):
         with self.assertRaises(GCMInvalidTtlException):
             self.gcm.construct_payload(
