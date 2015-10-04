@@ -96,13 +96,53 @@ def urlencode_utf8(params):
     return '&'.join(params)
 
 
+class Payload(object):
+
+    # TTL in seconds
+    GCM_TTL = 2419200
+
+    def __init__(self, **kwargs):
+        self.validate(kwargs)
+        self.__dict__.update(**kwargs)
+
+    def validate(self, options):
+        for key, value in options.items():
+            validate_method = getattr(self, 'validate_%s' % key, None)
+            if validate_method:
+                validate_method(value)
+
+    def validate_time_to_live(self, value):
+        if not (0 <= value <= self.GCM_TTL):
+            raise GCMInvalidTtlException("Invalid time to live value")
+
+    @property
+    def body(self):
+        raise NotImplementedError
+
+
+class PlaintextPayload(Payload):
+
+    @property
+    def body(self):
+        data = self.__dict__.pop('data')
+        for key, value in data.items():
+            self.__dict__['data.%s' % key] = value
+        return self.__dict__
+
+
+class JsonPayload(Payload):
+
+    @property
+    def body(self):
+        return json.dumps(self.__dict__)
+
+
 class GCM(object):
 
     # Timeunit is milliseconds.
     BACKOFF_INITIAL_DELAY = 1000
     MAX_BACKOFF_DELAY = 1024000
-    # TTL in seconds
-    GCM_TTL = 2419200
+
 
     def __init__(self, api_key, url=GCM_URL, proxy=None):
         """ api_key : google api key
@@ -118,10 +158,7 @@ class GCM(object):
         else:
             self.proxy = proxy
 
-
-    def construct_payload(self, registration_ids, data=None, collapse_key=None,
-        delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False,
-        restricted_package_name=None, priority=None):
+    def construct_payload(self, **kwargs):
         """
         Construct the dictionary mapping of parameters.
         Encodes the dictionary into JSON if for json requests.
@@ -131,41 +168,12 @@ class GCM(object):
         :raises GCMInvalidTtlException: if time_to_live is invalid
         """
 
-        if time_to_live:
-            if not (0 <= time_to_live <= self.GCM_TTL):
-                raise GCMInvalidTtlException("Invalid time to live value")
+        is_json = kwargs.pop('is_json')
 
-        payload = {}
         if is_json:
-            payload['registration_ids'] = registration_ids
-            if data:
-                payload['data'] = data
+            payload = JsonPayload(**kwargs).body
         else:
-            payload['registration_id'] = registration_ids
-            if data:
-                for key, value in data.items():
-                    payload['data.%s' % key] = value
-
-        if delay_while_idle:
-            payload['delay_while_idle'] = delay_while_idle
-
-        if time_to_live:
-            payload['time_to_live'] = time_to_live
-
-        if collapse_key:
-            payload['collapse_key'] = collapse_key
-
-        if dry_run:
-            payload['dry_run'] = True
-
-        if restricted_package_name:
-            payload['restricted_package_name'] = restricted_package_name
-
-        if priority:
-            payload['priority'] = priority
-
-        if is_json:
-            payload = json.dumps(payload)
+            payload = PlaintextPayload(**kwargs).body
 
         return payload
 
