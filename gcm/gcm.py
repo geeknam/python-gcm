@@ -93,6 +93,9 @@ def urlencode_utf8(params):
 
 
 class Payload(object):
+    """
+    Base Payload class which prepares data for HTTP requests
+    """
 
     # TTL in seconds
     GCM_TTL = 2419200
@@ -102,6 +105,10 @@ class Payload(object):
         self.__dict__.update(**kwargs)
 
     def validate(self, options):
+        """
+        Allow adding validation on each payload key
+        by defining `validate_{key_name}`
+        """
         for key, value in options.items():
             validate_method = getattr(self, 'validate_%s' % key, None)
             if validate_method:
@@ -120,11 +127,13 @@ class PlaintextPayload(Payload):
 
     @property
     def body(self):
-        data = self.__dict__.pop('data')
+        # Safeguard for backwards compatibility
         if 'registration_id' not in self.__dict__:
             self.__dict__['registration_id'] = self.__dict__.pop(
                 'registration_ids', None
             )
+        # Inline data for for plaintext request
+        data = self.__dict__.pop('data')
         for key, value in data.items():
             self.__dict__['data.%s' % key] = value
         return self.__dict__
@@ -142,7 +151,6 @@ class GCM(object):
     # Timeunit is milliseconds.
     BACKOFF_INITIAL_DELAY = 1000
     MAX_BACKOFF_DELAY = 1024000
-
 
     def __init__(self, api_key, url=GCM_URL, proxy=None):
         """ api_key : google api key
@@ -162,7 +170,6 @@ class GCM(object):
         """
         Construct the dictionary mapping of parameters.
         Encodes the dictionary into JSON if for json requests.
-        Helps appending 'data.' prefix to the plaintext data: 'hello' => 'data.hello'
 
         :return constructed dict or JSON payload
         :raises GCMInvalidTtlException: if time_to_live is invalid
