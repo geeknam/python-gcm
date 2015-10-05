@@ -232,8 +232,8 @@ class GCMTest(unittest.TestCase):
             pass
         self.assertTrue(mock_request.called)
         self.assertEqual(
-            mock_request.call_args[1]['data'],
-            'message=%C2%80abc'
+            mock_request.call_args[1]['data']['message'],
+            data['message']
         )
 
     def test_retry_plaintext_request_ok(self):

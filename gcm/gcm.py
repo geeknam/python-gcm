@@ -3,6 +3,7 @@ import json
 from collections import defaultdict
 import time
 import random
+from sys import version_info
 
 try:
     from urllib import quote_plus
@@ -74,22 +75,6 @@ def group_response(response, registration_ids, key):
             grouping[v].append(k)
 
     return grouping or None
-
-
-def urlencode_utf8(params):
-    """
-    UTF-8 safe variant of urllib.urlencode.
-    http://stackoverflow.com/a/8152242
-    """
-    if hasattr(params, 'items'):
-        params = params.items()
-    params = (
-        '='.join((
-            quote_plus(k.encode('utf8'), safe='/'),
-            quote_plus(v.encode('utf8'), safe='/')
-        )) for k, v in params
-    )
-    return '&'.join(params)
 
 
 class Payload(object):
@@ -194,21 +179,21 @@ class GCM(object):
         :raises GCMConnectionException: if GCM is screwed
         """
 
-        # Default Content-Type is
-        # application/x-www-form-urlencoded;charset=UTF-8
         headers = {
             'Authorization': 'key=%s' % self.api_key,
         }
+
         if is_json:
             headers['Content-Type'] = 'application/json'
+        else:
+            headers['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8'
 
-        if not is_json:
-            data = urlencode_utf8(data)
 
         response = requests.post(
             self.url, data=data, headers=headers,
             proxies=self.proxy
         )
+
         # Successful response
         if response.status_code == 200:
             if is_json:
@@ -248,9 +233,12 @@ class GCM(object):
             raise GCMMessageTooBigException("Message can't exceed 4096 bytes")
 
     def handle_plaintext_response(self, response):
-
         # Split response by line
+        if version_info.major == 3 and type(response) is bytes:
+            response = response.decode("utf-8", "strict")
+
         response_lines = response.strip().split('\n')
+
         # Split the first line by =
         key, value = response_lines[0].split('=')
         if key == 'Error':
