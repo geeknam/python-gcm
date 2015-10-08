@@ -316,24 +316,40 @@ class GCM(object):
         :param data: dict mapping of key-value pairs of messages
         :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
         """
-        retries = kwargs.pop('retries', 5)
-        payload = self.construct_payload(**kwargs)
+        args = dict(**kwargs)
 
+        retries = args.pop('retries', 5)
+        payload = self.construct_payload(**args)
+        registration_ids = args['registration_ids']
         backoff = self.BACKOFF_INITIAL_DELAY
+        info = None
+        has_error = False
 
-        registration_ids = kwargs['registration_ids']
         for attempt in range(retries):
+            try:
+                response = self.make_request(payload, is_json=True)
+                info = self.handle_json_response(response, registration_ids)
+                unsent_reg_ids = self.extract_unsent_reg_ids(info)
+                has_error = False
+            except GCMUnavailableException:
+                unsent_reg_ids = registration_ids
+                has_error = True
 
-            response = self.make_request(payload, is_json=True)
-            info = self.handle_json_response(response, registration_ids)
-
-            unsent_reg_ids = self.extract_unsent_reg_ids(info)
             if unsent_reg_ids:
                 registration_ids = unsent_reg_ids
+
+                # Make the retry request with the unsent registration ids
+                args['registration_ids'] = registration_ids
+                payload = self.construct_payload(args)
+
                 sleep_time = backoff / 2 + random.randrange(backoff)
                 time.sleep(float(sleep_time) / 1000)
                 if 2 * backoff < self.MAX_BACKOFF_DELAY:
                     backoff *= 2
             else:
                 break
+
+        if has_error:
+            raise IOError("Could not make request after %d attempts" % retries)
+
         return info
