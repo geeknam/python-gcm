@@ -288,6 +288,15 @@ class GCMTest(unittest.TestCase):
         self.assertIn('Unavailable', res['errors'])
         self.assertEqual(res['errors']['Unavailable'][0], '1')
 
+    def test_retry_json_request_unavailable(self):
+        returns = [GCMUnavailableException(), GCMUnavailableException(), GCMUnavailableException()]
+
+        self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
+        with self.assertRaises(IOError):
+            self.gcm.json_request(registration_ids=['1', '2'], data=self.data, retries=2)
+
+        self.assertEqual(self.gcm.make_request.call_count, 2)
+
     def test_retry_exponential_backoff(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), 'id=123456789']
 
