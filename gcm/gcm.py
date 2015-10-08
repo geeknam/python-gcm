@@ -3,6 +3,7 @@ import json
 from collections import defaultdict
 import time
 import random
+from sys import version_info
 
 try:
     from urllib import quote_plus
@@ -37,10 +38,6 @@ class GCMInvalidTtlException(GCMException):
     pass
 
 # Exceptions from Google responses
-
-
-class GCMMissingRegistrationException(GCMException):
-    pass
 
 
 class GCMMismatchSenderIdException(GCMException):
@@ -80,20 +77,58 @@ def group_response(response, registration_ids, key):
     return grouping or None
 
 
-def urlencode_utf8(params):
+class Payload(object):
     """
-    UTF-8 safe variant of urllib.urlencode.
-    http://stackoverflow.com/a/8152242
+    Base Payload class which prepares data for HTTP requests
     """
-    if hasattr(params, 'items'):
-        params = params.items()
-    params = (
-        '='.join((
-            quote_plus(k.encode('utf8'), safe='/'),
-            quote_plus(v.encode('utf8'), safe='/')
-        )) for k, v in params
-    )
-    return '&'.join(params)
+
+    # TTL in seconds
+    GCM_TTL = 2419200
+
+    def __init__(self, **kwargs):
+        self.validate(kwargs)
+        self.__dict__.update(**kwargs)
+
+    def validate(self, options):
+        """
+        Allow adding validation on each payload key
+        by defining `validate_{key_name}`
+        """
+        for key, value in options.items():
+            validate_method = getattr(self, 'validate_%s' % key, None)
+            if validate_method:
+                validate_method(value)
+
+    def validate_time_to_live(self, value):
+        if not (0 <= value <= self.GCM_TTL):
+            raise GCMInvalidTtlException("Invalid time to live value")
+
+    @property
+    def body(self):
+        raise NotImplementedError
+
+
+class PlaintextPayload(Payload):
+
+    @property
+    def body(self):
+        # Safeguard for backwards compatibility
+        if 'registration_id' not in self.__dict__:
+            self.__dict__['registration_id'] = self.__dict__.pop(
+                'registration_ids', None
+            )
+        # Inline data for for plaintext request
+        data = self.__dict__.pop('data')
+        for key, value in data.items():
+            self.__dict__['data.%s' % key] = value
+        return self.__dict__
+
+
+class JsonPayload(Payload):
+
+    @property
+    def body(self):
+        return json.dumps(self.__dict__)
 
 
 class GCM(object):
@@ -101,8 +136,6 @@ class GCM(object):
     # Timeunit is milliseconds.
     BACKOFF_INITIAL_DELAY = 1000
     MAX_BACKOFF_DELAY = 1024000
-    # TTL in seconds
-    GCM_TTL = 2419200
 
     def __init__(self, api_key, url=GCM_URL, proxy=None):
         """ api_key : google api key
@@ -118,54 +151,21 @@ class GCM(object):
         else:
             self.proxy = proxy
 
-
-    def construct_payload(self, registration_ids, data=None, collapse_key=None,
-        delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False,
-        restricted_package_name=None, priority=None):
+    def construct_payload(self, **kwargs):
         """
         Construct the dictionary mapping of parameters.
         Encodes the dictionary into JSON if for json requests.
-        Helps appending 'data.' prefix to the plaintext data: 'hello' => 'data.hello'
 
         :return constructed dict or JSON payload
         :raises GCMInvalidTtlException: if time_to_live is invalid
         """
 
-        if time_to_live:
-            if not (0 <= time_to_live <= self.GCM_TTL):
-                raise GCMInvalidTtlException("Invalid time to live value")
+        is_json = kwargs.pop('is_json', True)
 
-        payload = {}
         if is_json:
-            payload['registration_ids'] = registration_ids
-            if data:
-                payload['data'] = data
+            payload = JsonPayload(**kwargs).body
         else:
-            payload['registration_id'] = registration_ids
-            if data:
-                for key, value in data.items():
-                    payload['data.%s' % key] = value
-
-        if delay_while_idle:
-            payload['delay_while_idle'] = delay_while_idle
-
-        if time_to_live:
-            payload['time_to_live'] = time_to_live
-
-        if collapse_key:
-            payload['collapse_key'] = collapse_key
-
-        if dry_run:
-            payload['dry_run'] = True
-
-        if restricted_package_name:
-            payload['restricted_package_name'] = restricted_package_name
-
-        if priority:
-            payload['priority'] = priority
-
-        if is_json:
-            payload = json.dumps(payload)
+            payload = PlaintextPayload(**kwargs).body
 
         return payload
 
@@ -179,21 +179,21 @@ class GCM(object):
         :raises GCMConnectionException: if GCM is screwed
         """
 
-        # Default Content-Type is
-        # application/x-www-form-urlencoded;charset=UTF-8
         headers = {
             'Authorization': 'key=%s' % self.api_key,
         }
+
         if is_json:
             headers['Content-Type'] = 'application/json'
+        else:
+            headers['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8'
 
-        if not is_json:
-            data = urlencode_utf8(data)
 
         response = requests.post(
             self.url, data=data, headers=headers,
             proxies=self.proxy
         )
+
         # Successful response
         if response.status_code == 200:
             if is_json:
@@ -233,9 +233,12 @@ class GCM(object):
             raise GCMMessageTooBigException("Message can't exceed 4096 bytes")
 
     def handle_plaintext_response(self, response):
-
         # Split response by line
+        if version_info.major == 3 and type(response) is bytes:
+            response = response.decode("utf-8", "strict")
+
         response_lines = response.strip().split('\n')
+
         # Split the first line by =
         key, value = response_lines[0].split('=')
         if key == 'Error':
@@ -263,79 +266,49 @@ class GCM(object):
             return info['errors']['Unavailable']
         return []
 
-    def plaintext_request(self, registration_id, data=None, collapse_key=None,
-                          delay_while_idle=False, time_to_live=None, retries=5,
-                          dry_run=False, restricted_package_name=None, priority=None):
+    def plaintext_request(self, **kwargs):
         """
         Makes a plaintext request to GCM servers
 
         :param registration_id: string of the registration id
         :param data: dict mapping of key-value pairs of messages
         :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
-        :raises GCMMissingRegistrationException: if registration_id is not provided
         """
 
-        if not registration_id:
-            raise GCMMissingRegistrationException("Missing registration_id")
-
-        payload = self.construct_payload(
-            registration_id,
-            data=data,
-            collapse_key=collapse_key,
-            delay_while_idle=delay_while_idle,
-            time_to_live=time_to_live,
-            is_json=False,
-            dry_run=dry_run,
-            restricted_package_name=restricted_package_name,
-            priority=priority,
-        )
+        kwargs['is_json'] = False
+        retries = kwargs.pop('retries', 5)
+        payload = self.construct_payload(**kwargs)
 
         attempt = 0
         backoff = self.BACKOFF_INITIAL_DELAY
-        for attempt in range(retries):
-            try:
-                response = self.make_request(payload, is_json=False)
-                return self.handle_plaintext_response(response)
-            except GCMUnavailableException:
-                sleep_time = backoff / 2 + random.randrange(backoff)
-                time.sleep(float(sleep_time) / 1000)
-                if 2 * backoff < self.MAX_BACKOFF_DELAY:
-                    backoff *= 2
+
+        if retries:
+            for attempt in range(retries):
+                try:
+                    response = self.make_request(payload, is_json=False)
+                    return self.handle_plaintext_response(response)
+                except GCMUnavailableException:
+                    sleep_time = backoff / 2 + random.randrange(backoff)
+                    time.sleep(float(sleep_time) / 1000)
+                    if 2 * backoff < self.MAX_BACKOFF_DELAY:
+                        backoff *= 2
 
         raise IOError("Could not make request after %d attempts" % attempt)
 
-    def json_request(self, registration_ids, data=None, collapse_key=None,
-                     delay_while_idle=False, time_to_live=None, retries=5,
-                     dry_run=False, restricted_package_name=None, priority=None):
+    def json_request(self, **kwargs):
         """
         Makes a JSON request to GCM servers
 
         :param registration_ids: list of the registration ids
         :param data: dict mapping of key-value pairs of messages
         :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
-        :raises GCMMissingRegistrationException: if the list of registration_ids is empty
-        :raises GCMTooManyRegIdsException: if the list of registration_ids exceeds 1000 items
         """
-
-        if not registration_ids:
-            raise GCMMissingRegistrationException("Missing registration_ids")
-        if len(registration_ids) > 1000:
-            raise GCMTooManyRegIdsException(
-                "Exceded number of registration_ids")
-
-        payload = self.construct_payload(
-            registration_ids,
-            data=data,
-            collapse_key=collapse_key,
-            delay_while_idle=delay_while_idle,
-            time_to_live=time_to_live,
-            is_json=True,
-            dry_run=dry_run,
-            restricted_package_name=restricted_package_name,
-            priority=priority,
-        )
+        retries = kwargs.pop('retries', 5)
+        payload = self.construct_payload(**kwargs)
 
         backoff = self.BACKOFF_INITIAL_DELAY
+
+        registration_ids = kwargs['registration_ids']
         for attempt in range(retries):
 
             response = self.make_request(payload, is_json=True)
