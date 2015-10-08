@@ -64,13 +64,14 @@ class GCMUnavailableException(GCMException):
 
 
 # TODO: Refactor this to be more human-readable
+# TODO: Use OrderedDict for the result type to be able to preserve the order of the messages returned by GCM server
 def group_response(response, registration_ids, key):
     # Pair up results and reg_ids
     mapping = zip(registration_ids, response['results'])
     # Filter by key
     filtered = ((reg_id, res[key]) for reg_id, res in mapping if key in res)
     # Grouping of errors and mapping of ids
-    if key is 'registration_id':
+    if key in ['registration_id','message_id']:
         grouping = dict(filtered)
     else:
         grouping = defaultdict(list)
@@ -197,6 +198,8 @@ class GCM(object):
             proxies=self.proxy
         )
 
+        print(response.json())
+
         # Successful response
         if response.status_code == 200:
             if is_json:
@@ -255,14 +258,19 @@ class GCM(object):
 
     def handle_json_response(self, response, registration_ids):
         errors = group_response(response, registration_ids, 'error')
-        canonical = group_response(
-            response, registration_ids, 'registration_id')
+        canonical = group_response(response, registration_ids, 'registration_id')
+        success = group_response(response, registration_ids, 'message_id')
 
         info = {}
+
         if errors:
             info.update({'errors': errors})
+
         if canonical:
             info.update({'canonical': canonical})
+
+        if success:
+            info.update({'success': success})
 
         return info
 

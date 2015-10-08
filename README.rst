@@ -88,6 +88,12 @@ Error handling
    reg_ids = ['12', '34', '69']
    response = gcm.json_request(registration_ids=reg_ids, data=data)
 
+   # Successfully handled registration_ids
+   # Keep in mind that a registration id listed in response['success'] can also be in response['canonical'] if the registration id has changed
+   if response and 'success' in response:
+        for reg_id, success_id in response['success'].items():
+            print('SUCCESS for reg_id %s' % reg_id)
+
    # Handling errors
    if 'errors' in response:
        for error, reg_ids in response['errors'].items():
@@ -96,6 +102,7 @@ Error handling
                # Remove reg_ids from database
                for reg_id in reg_ids:
                    entity.filter(registration_id=reg_id).delete()
+
    if 'canonical' in response:
        for reg_id, canonical_id in response['canonical'].items():
            # Repace reg_id with canonical_id in your database
