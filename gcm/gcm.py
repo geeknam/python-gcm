@@ -39,6 +39,9 @@ class GCMInvalidTtlException(GCMException):
 
 # Exceptions from Google responses
 
+class GCMMissingRegistrationException(GCMException):
+    pass
+
 
 class GCMMismatchSenderIdException(GCMException):
     pass
