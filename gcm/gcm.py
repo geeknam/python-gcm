@@ -192,8 +192,6 @@ class GCM(object):
             proxies=self.proxy
         )
 
-        print(response.json())
-
         # Successful response
         if response.status_code == 200:
             if is_json:
@@ -334,7 +332,7 @@ class GCM(object):
 
                 # Make the retry request with the unsent registration ids
                 args['registration_ids'] = registration_ids
-                payload = self.construct_payload(args)
+                payload = self.construct_payload(**args)
 
                 sleep_time = backoff / 2 + random.randrange(backoff)
                 time.sleep(float(sleep_time) / 1000)
