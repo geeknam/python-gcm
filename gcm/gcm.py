@@ -5,12 +5,6 @@ import time
 import random
 from sys import version_info
 
-try:
-    from urllib import quote_plus
-except ImportError:
-    from urllib.parse import quote_plus
-
-
 GCM_URL = 'https://gcm-http.googleapis.com/gcm/send'
 
 
