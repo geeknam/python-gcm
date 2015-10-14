@@ -5,6 +5,7 @@ import time
 import random
 from sys import version_info
 import logging
+import re
 
 GCM_URL = 'https://gcm-http.googleapis.com/gcm/send'
 
@@ -32,6 +33,11 @@ class GCMTooManyRegIdsException(GCMException):
 class GCMInvalidTtlException(GCMException):
     pass
 
+
+class GCMTopicMessageException(GCMException):
+    pass
+
+
 # Exceptions from Google responses
 
 
@@ -56,6 +62,10 @@ class GCMInvalidRegistrationException(GCMException):
 
 
 class GCMUnavailableException(GCMException):
+    pass
+
+
+class GCMInvalidInputException(GCMException):
     pass
 
 
@@ -104,6 +114,8 @@ class Payload(object):
     # TTL in seconds
     GCM_TTL = 2419200
 
+    topicPattern = re.compile('/topics/[a-zA-Z0-9-_.~%]+')
+
     def __init__(self, **kwargs):
         self.validate(kwargs)
         self.__dict__.update(**kwargs)
@@ -121,7 +133,16 @@ class Payload(object):
     def validate_time_to_live(self, value):
         if not (0 <= value <= self.GCM_TTL):
             raise GCMInvalidTtlException("Invalid time to live value")
+    
+    def validate_registration_ids(self, registration_ids):
 
+        if len(registration_ids) > 1000:
+            raise GCMTooManyRegIdsException("Exceded number of registration_ids")
+    
+    def validate_to(self, value):
+        if not re.match(Payload.topicPattern, value):
+            raise GCMInvalidInputException("Invalid topic name: {0}! Does not match the {1} pattern".format(value, Payload.topicPattern))
+    
     @property
     def body(self):
         raise NotImplementedError
@@ -221,6 +242,16 @@ class GCM(object):
         is_json = kwargs.pop('is_json', True)
 
         if is_json:
+            if 'topic' not in kwargs and 'registration_ids' not in kwargs:
+                raise GCMMissingRegistrationException("Missing registration_ids or topic")
+            elif 'topic' in kwargs and 'registration_ids' in kwargs :
+                raise GCMInvalidInputException("Invalid parameters! Can't have both 'registration_ids' and 'to' as input parameters")
+
+            if 'topic' in kwargs:
+                kwargs['to'] = '/topics/{}'.format(kwargs.pop('topic'))
+            elif 'registration_ids' not in kwargs:
+                    raise GCMMissingRegistrationException("Missing registration_ids")
+            
             payload = JsonPayload(**kwargs).body
         else:
             payload = PlaintextPayload(**kwargs).body
@@ -343,6 +374,12 @@ class GCM(object):
 
         return info
 
+    def handle_topic_response(self, response):
+        error = response.get('error')
+        if error:
+            raise GCMTopicMessageException(error)
+        return response['message_id']
+
     def extract_unsent_reg_ids(self, info):
         if 'errors' in info and 'Unavailable' in info['errors']:
             return info['errors']['Unavailable']
@@ -354,11 +391,14 @@ class GCM(object):
 
         :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
         """
+        if 'registration_id' not in kwargs:
+            raise GCMMissingRegistrationException("Missing registration_id")
+        elif not kwargs['registration_id']:
+            raise GCMMissingRegistrationException("Empty registration_id")
 
         kwargs['is_json'] = False
         retries = kwargs.pop('retries', 5)
         payload = self.construct_payload(**kwargs)
-
         backoff = self.BACKOFF_INITIAL_DELAY
         info = None
         has_error = False
@@ -392,10 +432,14 @@ class GCM(object):
         """
         Makes a JSON request to GCM servers
 
-        :param registration_ids: list of the registration ids
-        :param data: dict mapping of key-value pairs of messages
+        :param kwargs: dict mapping of key-value pairs of parameters
         :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
         """
+        if 'registration_ids' not in kwargs:
+            raise GCMMissingRegistrationException("Missing registration_ids")
+        elif not kwargs['registration_ids']:
+            raise GCMMissingRegistrationException("Empty registration_ids")
+
         args = dict(**kwargs)
 
         retries = args.pop('retries', 5)
@@ -440,3 +484,40 @@ class GCM(object):
             raise IOError("Could not make request after %d attempts" % retries)
 
         return info
+
+    def send_topic_message(self, **kwargs):
+        """
+        Publish Topic Messaging to GCM servers
+        Ref: https://developers.google.com/cloud-messaging/topic-messaging
+
+        :param kwargs: dict mapping of key-value pairs of parameters
+        :return message_id
+        :raises GCMInvalidInputException: if the topic is empty
+        """
+
+        if 'topic' not in kwargs:
+            raise GCMInvalidInputException("Topic name missing!")
+        elif not kwargs['topic']:
+            raise GCMInvalidInputException("Topic name cannot be empty!")
+
+        retries = kwargs.pop('retries', 5)
+        payload = self.construct_payload(**kwargs)
+        backoff = self.BACKOFF_INITIAL_DELAY
+
+        for attempt in range(retries):
+            try:
+                response = self.make_request(payload, is_json=True)
+                return self.handle_topic_response(response)
+            except GCMUnavailableException:
+                sleep_time = backoff / 2 + random.randrange(backoff)
+                time.sleep(float(sleep_time) / 1000)
+                if 2 * backoff < self.MAX_BACKOFF_DELAY:
+                    backoff *= 2
+        else:
+            raise IOError("Could not make request after %d attempts" % retries)
+
+    def send_device_group_message(self, **kwargs):
+        raise NotImplementedError
+
+    def send_downstream_message(self, **kwargs):
+        return self.json_request(**kwargs)

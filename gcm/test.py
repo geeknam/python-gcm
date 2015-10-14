@@ -106,6 +106,42 @@ class GCMTest(unittest.TestCase):
         self.assertIn('data.param1', result)
         self.assertIn('data.param2', result)
 
+    def test_topic_payload(self):
+        topic = 'foo'
+        json_payload = self.gcm.construct_payload(topic=topic,
+                                                  data=self.data)
+        payload = json.loads(json_payload)
+
+        self.assertEqual(payload['data'], self.data)
+        self.assertEqual(payload.get('to'), '/topics/foo')
+
+    def test_invalid_registration_ids_and_topic(self):
+        with self.assertRaises(GCMMissingRegistrationException):
+            self.gcm.construct_payload()
+
+        with self.assertRaises(GCMInvalidInputException):
+            reg_ids = ['12', '145', '56']
+            topic = 'foo'
+            self.gcm.construct_payload(registration_ids=reg_ids,
+                                       topic=topic)
+
+    def test_limit_reg_ids(self):
+        reg_ids = range(1003)
+        self.assertTrue(len(reg_ids) > 1000)
+        with self.assertRaises(GCMTooManyRegIdsException):
+            self.gcm.json_request(registration_ids=reg_ids, data=self.data)
+
+    def test_missing_reg_id(self):
+        with self.assertRaises(GCMMissingRegistrationException):
+            self.gcm.json_request(registration_ids=[], data=self.data)
+
+        with self.assertRaises(GCMMissingRegistrationException):
+            self.gcm.plaintext_request(registration_id=None, data=self.data)
+
+    def test_empty_topic(self):
+        with self.assertRaises(GCMInvalidInputException):
+            self.gcm.send_topic_message(topic='', data=self.data)
+
     def test_invalid_ttl(self):
         with self.assertRaises(GCMInvalidTtlException):
             self.gcm.construct_payload(
@@ -191,6 +227,15 @@ class GCMTest(unittest.TestCase):
         response = 'id=23436576\nregistration_id=3456'
         res = self.gcm.handle_plaintext_response(response)
         self.assertEqual(res, '3456')
+
+    def test_handle_topic_response(self):
+        response = {'error': 'TopicsMessageRateExceeded'}
+        with self.assertRaises(GCMTopicMessageException):
+            self.gcm.handle_topic_response(response)
+
+        response = {'message_id': '10'}
+        res = self.gcm.handle_topic_response(response)
+        self.assertEqual('10', res)
 
     @patch('requests.post')
     def test_make_request_header(self, mock_request):
@@ -310,12 +355,22 @@ class GCMTest(unittest.TestCase):
         self.assertIn('Unavailable', res['errors'])
         self.assertEqual(res['errors']['Unavailable'][0], '1')
 
-    def test_retry_json_request_unavailable(self):
-        returns = [GCMUnavailableException(), GCMUnavailableException(), GCMUnavailableException()]
+    def test_retry_topic_request_ok(self):
+        message_id = '123456789'
+        returns = [GCMUnavailableException(), GCMUnavailableException(), {'message_id': message_id}]
 
         self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
+        res = self.gcm.send_topic_message(topic='foo', data=self.data)
+
+        self.assertEqual(res, message_id)
+        self.assertEqual(self.gcm.make_request.call_count, 3)
+
+    def test_retry_topic_request_fail(self):
+        returns = [GCMUnavailableException(), GCMUnavailableException(), GCMUnavailableException()]
+        self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
+        
         with self.assertRaises(IOError):
-            self.gcm.json_request(registration_ids=['1', '2'], data=self.data, retries=2)
+            self.gcm.send_topic_message(topic='foo', data=self.data, retries=2)
 
         self.assertEqual(self.gcm.make_request.call_count, 2)
 
