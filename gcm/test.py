@@ -1,7 +1,7 @@
 import unittest
 from gcm import *
 import json
-from mock import MagicMock, patch
+from mock import MagicMock, call, patch, sentinel
 import time
 
 
@@ -249,6 +249,22 @@ class GCMTest(unittest.TestCase):
         self.assertEqual(
             mock_request.call_args[1]['data']['message'],
             data['message']
+        )
+
+    @patch('requests.post')
+    def test_make_request_timeout(self, mock_request):
+        """ Test make_request uses timeout. """
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.content = "OK"
+        gcm = GCM('123api', timeout=sentinel.timeout)
+        # Perform request
+        gcm.make_request(
+            {'message': 'test'}, is_json=True
+        )
+        mock_request.assert_called_once_with(
+            GCM_URL, data={'message': 'test'},
+            headers={'Authorization': 'key=123api', 'Content-Type': 'application/json'}, proxies=None,
+            timeout=sentinel.timeout,
         )
 
     def test_retry_plaintext_request_ok(self):
