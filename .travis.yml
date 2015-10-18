@@ -6,6 +6,6 @@ python:
 install:
   - pip install mock
   - pip install coveralls
-script: coverage run --source=gcm gcm/test.py
+script: coverage run --include gcm/gcm.py gcm/test.py
 after_success:
     coveralls
