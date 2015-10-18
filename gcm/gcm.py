@@ -4,6 +4,7 @@ from collections import defaultdict
 import time
 import random
 from sys import version_info
+import logging
 
 GCM_URL = 'https://gcm-http.googleapis.com/gcm/send'
 
@@ -32,6 +33,7 @@ class GCMInvalidTtlException(GCMException):
     pass
 
 # Exceptions from Google responses
+
 
 class GCMMissingRegistrationException(GCMException):
     pass
@@ -73,6 +75,25 @@ def group_response(response, registration_ids, key):
             grouping[v].append(k)
 
     return grouping or None
+
+
+def get_retry_after(response_headers):
+    retry_after = response_headers.get('Retry-After')
+
+    if retry_after:
+        # Parse from seconds (e.g. Retry-After: 120)
+        if type(retry_after) is int:
+            return retry_after
+        # Parse from HTTP-Date (e.g. Retry-After: Fri, 31 Dec 1999 23:59:59 GMT)
+        else:
+            try:
+                from email.utils import parsedate
+                from calendar import timegm
+                return timegm(parsedate(retry_after))
+            except (TypeError, OverflowError, ValueError):
+                return None
+
+    return None
 
 
 class Payload(object):
@@ -134,23 +155,59 @@ class GCM(object):
     # Timeunit is milliseconds.
     BACKOFF_INITIAL_DELAY = 1000
     MAX_BACKOFF_DELAY = 1024000
+    logger = None
 
-    def __init__(self, api_key, url=GCM_URL, proxy=None, timeout=None):
+    def __init__(self, api_key, proxy=None, timeout=None, debug=False):
         """ api_key : google api key
             url: url of gcm service.
             proxy: can be string "http://host:port" or dict {'https':'host:port'}
             timeout: timeout for every HTTP request, see 'requests' documentation for possible values.
         """
         self.api_key = api_key
-        self.url = url
+        self.url = GCM_URL
 
         if isinstance(proxy, str):
-            protocol = url.split(':')[0]
+            protocol = self.url.split(':')[0]
             self.proxy = {protocol: proxy}
         else:
             self.proxy = proxy
 
         self.timeout = timeout
+        self.debug = debug
+        self.retry_after = None
+
+        if self.debug:
+            GCM.enable_logging()
+
+    @staticmethod
+    def enable_logging(level=logging.DEBUG, handler=None):
+        """
+        Helper for quickly adding a StreamHandler to the logger. Useful for debugging.
+
+        :param handler:
+        :param level:
+        :return: the handler after adding it
+        """
+        if not handler:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('[%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s - %(funcName)s()] %(message)s'))
+
+        GCM.logger = logging.getLogger(__name__)
+        GCM.logger.addHandler(handler)
+        GCM.logger.setLevel(level)
+        GCM.log('Added a stderr logging handler to logger: {0}', __name__)
+
+        # Enable requests logging
+        requests_logger_name = 'requests.packages.urllib3'
+        requests_logger = logging.getLogger(requests_logger_name)
+        requests_logger.addHandler(handler)
+        requests_logger.setLevel(level)
+        GCM.log('Added a stderr logging handler to logger: {0}', requests_logger_name)
+
+    @staticmethod
+    def log(message, *data):
+        if GCM.logger:
+            GCM.logger.debug(message.format(*data))
 
     def construct_payload(self, **kwargs):
         """
@@ -189,11 +246,24 @@ class GCM(object):
         else:
             headers['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8'
 
+        GCM.log('Request URL: {0}', self.url)
+        GCM.log('Request headers: {0}', headers)
+        GCM.log('Request proxy: {0}', self.proxy)
+        GCM.log('Request timeout: {0}', self.timeout)
+        GCM.log('Request data: {0}', data)
+        GCM.log('Request is_json: {0}', is_json)
 
         response = requests.post(
             self.url, data=data, headers=headers,
             proxies=self.proxy, timeout=self.timeout,
         )
+
+        GCM.log('Response status: {0} {1}', response.status_code, response.reason)
+        GCM.log('Response headers: {0}', response.headers)
+        GCM.log('Response data: {0}', response.text)
+
+        # 5xx or 200 + error:Unavailable
+        self.retry_after = get_retry_after(response.headers)
 
         # Successful response
         if response.status_code == 200:
@@ -236,6 +306,10 @@ class GCM(object):
             raise GCMMissingRegistrationException("Missing registration")
 
     def handle_plaintext_response(self, response):
+        if type(response) not in [bytes, str]:
+            raise TypeError("Invalid type for response parameter! Expected: bytes or str. "
+                            "Actual: {0}".format(type(response).__name__))
+
         # Split response by line
         if version_info.major == 3 and type(response) is bytes:
             response = response.decode("utf-8", "strict")
@@ -278,8 +352,6 @@ class GCM(object):
         """
         Makes a plaintext request to GCM servers
 
-        :param registration_id: string of the registration id
-        :param data: dict mapping of key-value pairs of messages
         :return dict of response body from Google including multicast_id, success, failure, canonical_ids, etc
         """
 
@@ -287,21 +359,34 @@ class GCM(object):
         retries = kwargs.pop('retries', 5)
         payload = self.construct_payload(**kwargs)
 
-        attempt = 0
         backoff = self.BACKOFF_INITIAL_DELAY
+        info = None
+        has_error = False
 
-        if retries:
-            for attempt in range(retries):
-                try:
-                    response = self.make_request(payload, is_json=False)
-                    return self.handle_plaintext_response(response)
-                except GCMUnavailableException:
-                    sleep_time = backoff / 2 + random.randrange(backoff)
-                    time.sleep(float(sleep_time) / 1000)
-                    if 2 * backoff < self.MAX_BACKOFF_DELAY:
-                        backoff *= 2
+        for attempt in range(retries):
+            try:
+                response = self.make_request(payload, is_json=False)
+                info = self.handle_plaintext_response(response)
+                has_error = False
+            except GCMUnavailableException:
+                has_error = True
 
-        raise IOError("Could not make request after %d attempts" % attempt)
+            if self.retry_after:
+                GCM.log("[Attempt #{0}] Retry-After ~> Sleeping for {1} seconds".format(attempt, self.retry_after))
+                time.sleep(self.retry_after)
+                self.retry_after = None
+            elif has_error:
+                sleep_time = backoff / 2 + random.randrange(backoff)
+                nap_time = float(sleep_time) / 1000
+                GCM.log("[Attempt #{0}]Backoff ~> Sleeping for {1} seconds".format(attempt, nap_time))
+                time.sleep(nap_time)
+                if 2 * backoff < self.MAX_BACKOFF_DELAY:
+                    backoff *= 2
+
+        if has_error:
+            raise IOError("Could not make request after %d attempts" % retries)
+
+        return info
 
     def json_request(self, **kwargs):
         """
@@ -337,10 +422,17 @@ class GCM(object):
                 args['registration_ids'] = registration_ids
                 payload = self.construct_payload(**args)
 
-                sleep_time = backoff / 2 + random.randrange(backoff)
-                time.sleep(float(sleep_time) / 1000)
-                if 2 * backoff < self.MAX_BACKOFF_DELAY:
-                    backoff *= 2
+                if self.retry_after:
+                    GCM.log("[Attempt #{0}] Retry-After ~> Sleeping for {1}".format(attempt, self.retry_after))
+                    time.sleep(self.retry_after)
+                    self.retry_after = None
+                else:
+                    sleep_time = backoff / 2 + random.randrange(backoff)
+                    nap_time = float(sleep_time) / 1000
+                    GCM.log("[Attempt #{0}] Backoff ~> Sleeping for {1}".format(attempt, nap_time))
+                    time.sleep(nap_time)
+                    if 2 * backoff < self.MAX_BACKOFF_DELAY:
+                        backoff *= 2
             else:
                 break
 
