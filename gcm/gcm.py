@@ -157,25 +157,26 @@ class GCM(object):
     MAX_BACKOFF_DELAY = 1024000
     logger = None
 
-    def __init__(self, api_key, url=GCM_URL, proxy=None, timeout=None, debug=False):
+    def __init__(self, api_key, proxy=None, timeout=None, debug=False):
         """ api_key : google api key
             url: url of gcm service.
             proxy: can be string "http://host:port" or dict {'https':'host:port'}
             timeout: timeout for every HTTP request, see 'requests' documentation for possible values.
         """
         self.api_key = api_key
-        self.url = url
+        self.url = GCM_URL
 
         if isinstance(proxy, str):
-            protocol = url.split(':')[0]
+            protocol = self.url.split(':')[0]
             self.proxy = {protocol: proxy}
         else:
             self.proxy = proxy
 
         self.timeout = timeout
+        self.debug = debug
         self.retry_after = None
 
-        if debug:
+        if self.debug:
             GCM.enable_logging()
 
     @staticmethod
@@ -371,13 +372,13 @@ class GCM(object):
                 has_error = True
 
             if self.retry_after:
-                GCM.log("Retry-After ~> Sleeping for {0} seconds".format(self.retry_after))
+                GCM.log("[Attempt #{0}] Retry-After ~> Sleeping for {1} seconds".format(attempt, self.retry_after))
                 time.sleep(self.retry_after)
                 self.retry_after = None
             elif has_error:
                 sleep_time = backoff / 2 + random.randrange(backoff)
                 nap_time = float(sleep_time) / 1000
-                GCM.log("Backoff ~> Sleeping for {0} seconds".format(nap_time))
+                GCM.log("[Attempt #{0}]Backoff ~> Sleeping for {1} seconds".format(attempt, nap_time))
                 time.sleep(nap_time)
                 if 2 * backoff < self.MAX_BACKOFF_DELAY:
                     backoff *= 2
@@ -422,13 +423,13 @@ class GCM(object):
                 payload = self.construct_payload(**args)
 
                 if self.retry_after:
-                    GCM.log("Retry-After ~> Sleeping for {0}".format(self.retry_after))
+                    GCM.log("[Attempt #{0}] Retry-After ~> Sleeping for {1}".format(attempt, self.retry_after))
                     time.sleep(self.retry_after)
                     self.retry_after = None
                 else:
                     sleep_time = backoff / 2 + random.randrange(backoff)
                     nap_time = float(sleep_time) / 1000
-                    GCM.log("Backoff ~> Sleeping for {0}".format(nap_time))
+                    GCM.log("[Attempt #{0}] Backoff ~> Sleeping for {1}".format(attempt, nap_time))
                     time.sleep(nap_time)
                     if 2 * backoff < self.MAX_BACKOFF_DELAY:
                         backoff *= 2
