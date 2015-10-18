@@ -1,7 +1,7 @@
 import unittest
 from gcm import *
 import json
-from mock import MagicMock, call, patch, sentinel
+from mock import MagicMock, Mock, PropertyMock, patch, sentinel
 import time
 
 
@@ -51,7 +51,7 @@ class GCMTest(unittest.TestCase):
                 {'message_id': '1234'}
             ]
         }
-        time.sleep = MagicMock()
+        time.sleep = Mock()
 
     def test_gcm_proxy(self):
         self.gcm = GCM('123api', proxy='http://domain.com:8888')
@@ -204,7 +204,6 @@ class GCMTest(unittest.TestCase):
         )
         self.assertTrue(mock_request.return_value.json.called)
 
-
     @patch('requests.post')
     def test_make_request_plaintext(self, mock_request):
         """ Test plaintext make_request. """
@@ -257,7 +256,7 @@ class GCMTest(unittest.TestCase):
         mock_request.return_value.status_code = 200
         mock_request.return_value.content = "OK"
         gcm = GCM('123api', timeout=sentinel.timeout)
-        # Perform request
+
         gcm.make_request(
             {'message': 'test'}, is_json=True
         )
@@ -267,14 +266,21 @@ class GCMTest(unittest.TestCase):
             timeout=sentinel.timeout,
         )
 
+    def test_plaintext_request_ok(self):
+        returns = ['id=123456789']
+        self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
+        res = self.gcm.plaintext_request(registration_id='1234', data=self.data, retries=1)
+        self.assertIsNone(res)
+        self.assertEqual(self.gcm.make_request.call_count, 1)
+
     def test_retry_plaintext_request_ok(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), 'id=123456789']
 
         self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
-        res = self.gcm.plaintext_request(registration_id='1234', data=self.data)
-
-        self.assertIsNone(res)
-        self.assertEqual(self.gcm.make_request.call_count, 3)
+        with self.assertRaises(IOError):
+            res = self.gcm.plaintext_request(registration_id='1234', data=self.data, retries=1)
+            self.assertIsNone(res)
+            self.assertEqual(self.gcm.make_request.call_count, 3)
 
     def test_retry_plaintext_request_fail(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), GCMUnavailableException()]
@@ -317,7 +323,9 @@ class GCMTest(unittest.TestCase):
         returns = [GCMUnavailableException(), GCMUnavailableException(), 'id=123456789']
 
         self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
-        self.gcm.plaintext_request(registration_id='1234', data=self.data)
+
+        with self.assertRaises(IOError):
+            self.gcm.plaintext_request(registration_id='1234', data=self.data, retries=2)
 
         # time.sleep is actually mock object.
         self.assertEqual(time.sleep.call_count, 2)
@@ -327,6 +335,135 @@ class GCMTest(unittest.TestCase):
             self.assertTrue(backoff / 2 <= sleep_time <= backoff * 3 / 2)
             if 2 * backoff < self.gcm.MAX_BACKOFF_DELAY:
                 backoff *= 2
+
+    @patch('requests.post')
+    def test_retry_after_header_plaintext_request_with_varying_status(self, mock_request):
+        retries = 2
+
+        for index, status in enumerate([200, 500, 503]):
+            mock_request.return_value.status_code = status
+            mock_request.return_value.headers['Retry-After'] = 30
+
+            self.gcm.make_request = MagicMock(return_value='Error=Unavailable')
+            self.gcm.retry_after = PropertyMock(return_value=True)
+
+            self.assertIsNotNone(self.gcm.retry_after)
+
+            with self.assertRaises(IOError):
+                res = self.gcm.plaintext_request(registration_id='123', data=self.data, retries=retries)
+
+                self.assertIsNone(self.gcm.retry_after)
+                self.assertEqual(time.sleep.call_count, retries + index)
+                self.assertFalse(mock_request.return_value.content.called)
+                self.assertEqual(self.gcm.make_request.call_count, retries)
+                print(res)
+                self.assertIn('errors', res)
+                self.assertIn('Unavailable', res['errors'])
+                self.assertEqual(res['errors']['Unavailable'][0], '1')
+                self.assertEqual(res['errors']['Unavailable'][1], '2')
+
+    @patch('requests.post')
+    def test_retry_after_header_json_request_with_varying_status(self, mock_request):
+        retries = 1
+
+        for index, status in enumerate([200, 500, 503]):
+            mock_request.return_value.status_code = status
+            mock_request.return_value.headers['Retry-After'] = 30
+
+            self.gcm.make_request = MagicMock(return_value=self.mock_response_1)
+            self.gcm.retry_after = PropertyMock(return_value=True)
+
+            self.assertIsNotNone(self.gcm.retry_after)
+
+            try:
+                res = self.gcm.json_request(registration_ids=['1', '2'], data=self.data, retries=retries)
+            except IOError:
+                self.fail("json_request raised IOError")
+
+            self.assertIsNone(self.gcm.retry_after)
+            self.assertEqual(time.sleep.call_count, retries + index)
+            self.assertFalse(mock_request.return_value.json.called)
+            self.assertEqual(self.gcm.make_request.call_count, retries)
+            self.assertIn('errors', res)
+            self.assertIn('Unavailable', res['errors'])
+            self.assertEqual(res['errors']['Unavailable'][0], '1')
+            self.assertEqual(res['errors']['Unavailable'][1], '2')
+
+    @patch('gcm.logging.getLogger')
+    def test_logging_is_enabled(self, mock_logging):
+        self.assertTrue(type(GCM.logger), MagicMock)
+        GCM.enable_logging()
+        self.assertEqual(GCM.logger.debug.call_count, 2)
+        GCM.logger.debug.assert_any_call('Added a stderr logging handler to logger: gcm')
+        GCM.logger.debug.assert_any_call('Added a stderr logging handler to logger: requests.packages.urllib3')
+
+    @patch('gcm.logging.getLogger')
+    def test_debug_enables_logging(self, mock_logging):
+        self.assertTrue(type(GCM.logger), MagicMock)
+        gcm = GCM('123api', debug=True)
+        self.assertEqual(gcm.logger.debug.call_count, 2)
+        gcm.logger.debug.assert_any_call('Added a stderr logging handler to logger: gcm')
+        gcm.logger.debug.assert_any_call('Added a stderr logging handler to logger: requests.packages.urllib3')
+
+    def test_type_error_in_handle_plaintext_response(self):
+        with self.assertRaises(TypeError):
+            self.gcm.handle_plaintext_response(self.mock_response_1)
+
+    def test_bytes_response_in_handle_plaintext_response(self):
+        with self.assertRaises(GCMUnavailableException):
+            self.gcm.handle_plaintext_response(b'Error=Unavailable')
+
+    def test_missing_registration_exception_is_raised_in_handle_plaintext_response(self):
+        with self.assertRaises(GCMMissingRegistrationException):
+            self.gcm.handle_plaintext_response('Error=MissingRegistration')
+
+    def test_invalid_registration_exception_is_raised_in_handle_plaintext_response(self):
+        with self.assertRaises(GCMInvalidRegistrationException):
+            self.gcm.handle_plaintext_response('Error=InvalidRegistration')
+
+    def test_mismatch_senderid_exception_is_raised_in_handle_plaintext_response(self):
+        with self.assertRaises(GCMMismatchSenderIdException):
+            self.gcm.handle_plaintext_response('Error=MismatchSenderId')
+
+    def test_messagetobig_registration_exception_is_raised_in_handle_plaintext_response(self):
+        with self.assertRaises(GCMMessageTooBigException):
+            self.gcm.handle_plaintext_response('Error=MessageTooBig')
+
+    def test_payload_body_raises_not_implemented_exception(self):
+        payload = Payload()
+        with self.assertRaises(NotImplementedError):
+            payload.body
+
+    def test_retry_after_returns_int_when_int_given(self):
+        retry_after = 21345
+        res = get_retry_after({'Retry-After': retry_after})
+        self.assertEqual(res, retry_after)
+
+    def test_retry_after_returns_none_when_invalid_http_date_string_given(self):
+        retry_after = '21345'
+        res = get_retry_after({'Retry-After': retry_after})
+        self.assertIsNone(res)
+
+    def test_retry_after_returns_int_when_valid_http_date_string_given(self):
+        retry_after = 'Fri, 31 Dec 1999 23:59:59 GMT'
+        res = get_retry_after({'Retry-After': retry_after})
+        self.assertIsNotNone(res)
+        self.assertEqual(res, 946684799.0)
+        self.assertTrue(type(res), float)
+
+    def test_retry_after_returns_none_when_retry_after_is_missing(self):
+        res = get_retry_after({})
+        self.assertIsNone(res)
+
+    def test_retry_after_returns_none_when_retry_after_is_empty(self):
+        retry_after = ''
+        res = get_retry_after({'Retry-After': retry_after})
+        self.assertIsNone(res)
+
+    def test_retry_after_returns_none_when_retry_after_is_zero(self):
+        retry_after = 0
+        res = get_retry_after({'Retry-After': retry_after})
+        self.assertIsNone(res)
 
 if __name__ == '__main__':
     unittest.main()
