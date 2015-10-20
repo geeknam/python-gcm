@@ -4,7 +4,7 @@ setup(
     name='python-gcm',
     version='0.2',
     packages=['gcm'],
-    license=open('LICENSE').read(),
+    license='The MIT License (MIT)',
     author='Nam Ngo',
     author_email='nam@kogan.com.au',
     url='http://blog.namis.me/python-gcm/',
