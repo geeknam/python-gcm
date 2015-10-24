@@ -36,6 +36,7 @@ Features
 * Proxy support
 * Easily handle errors
 * Uses `requests` from version > 0.2
+* Topic Messaging `Reference <https://developers.google.com/cloud-messaging/topic-messaging>`__
 
 Usage
 ------------
@@ -64,6 +65,11 @@ Basic
        registration_ids=reg_ids, data=data,
        collapse_key='uptoyou', delay_while_idle=True, time_to_live=3600
    )
+
+   # Topic Messaging
+   topic = 'foo'
+   gcm.send_topic_message(topic=topic, data=data)
+
 
 Error handling
 
