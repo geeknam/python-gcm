@@ -134,3 +134,11 @@ Read more on response errors `here
 * GCMMessageTooBigException
 * GCMInvalidRegistrationException
 * GCMUnavailableException
+
+Contributing
+==========
+See `CONTRIBUTING.md <CONTRIBUTING.md>`_
+
+Licensing
+=======
+See `LICENSE <LICENSE>`_
