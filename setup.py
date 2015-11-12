@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='python-gcm',
-    version='0.2',
+    version='0.3',
     packages=['gcm'],
     license='The MIT License (MIT)',
     author='Nam Ngo',
