@@ -237,7 +237,7 @@ class GCMTest(unittest.TestCase):
         res = self.gcm.handle_topic_response(response)
         self.assertEqual('10', res)
 
-    @patch('requests.post')
+    @patch('requests.Session.post')
     def test_make_request_header(self, mock_request):
         """ Test plaintext make_request. """
 
@@ -249,7 +249,7 @@ class GCMTest(unittest.TestCase):
         )
         self.assertTrue(mock_request.return_value.json.called)
 
-    @patch('requests.post')
+    @patch('requests.Session.post')
     def test_make_request_plaintext(self, mock_request):
         """ Test plaintext make_request. """
 
@@ -279,7 +279,7 @@ class GCMTest(unittest.TestCase):
                 {'message': 'test'}, is_json=False
             )
 
-    @patch('requests.api.request')
+    @patch('requests.Session.post')
     def test_make_request_unicode(self, mock_request):
         """ Test make_request with unicode payload. """
         data = {
@@ -295,7 +295,7 @@ class GCMTest(unittest.TestCase):
             data['message']
         )
 
-    @patch('requests.post')
+    @patch('requests.Session.post')
     def test_make_request_timeout(self, mock_request):
         """ Test make_request uses timeout. """
         mock_request.return_value.status_code = 200
@@ -368,7 +368,7 @@ class GCMTest(unittest.TestCase):
     def test_retry_topic_request_fail(self):
         returns = [GCMUnavailableException(), GCMUnavailableException(), GCMUnavailableException()]
         self.gcm.make_request = MagicMock(side_effect=create_side_effect(returns))
-        
+
         with self.assertRaises(IOError):
             self.gcm.send_topic_message(topic='foo', data=self.data, retries=2)
 
@@ -391,7 +391,7 @@ class GCMTest(unittest.TestCase):
             if 2 * backoff < self.gcm.MAX_BACKOFF_DELAY:
                 backoff *= 2
 
-    @patch('requests.post')
+    @patch('requests.Session.post')
     def test_retry_after_header_plaintext_request_with_varying_status(self, mock_request):
         retries = 2
 
@@ -417,7 +417,7 @@ class GCMTest(unittest.TestCase):
                 self.assertEqual(res['errors']['Unavailable'][0], '1')
                 self.assertEqual(res['errors']['Unavailable'][1], '2')
 
-    @patch('requests.post')
+    @patch('requests.Session.post')
     def test_retry_after_header_json_request_with_varying_status(self, mock_request):
         retries = 1
 
@@ -459,6 +459,35 @@ class GCMTest(unittest.TestCase):
         self.assertEqual(gcm.logger.debug.call_count, 2)
         gcm.logger.debug.assert_any_call('Added a stderr logging handler to logger: gcm')
         gcm.logger.debug.assert_any_call('Added a stderr logging handler to logger: requests.packages.urllib3')
+
+    @patch('requests.Session.post')
+    def test_make_request_uses_session(self, mock_request):
+        mock_request.return_value.status_code = 500
+
+        session = requests.Session()
+        with patch.object(session, 'post') as mock_session_request:
+            mock_session_request.return_value.status_code = 200
+            mock_session_request.return_value.content = "OK"
+            # Perform request
+            with patch.object(session, 'close') as mock_session_close:
+                self.gcm.make_request(
+                    {'message': 'test'}, is_json=True, session=session
+                )
+
+                self.assertFalse(mock_session_close.called)
+            self.assertTrue(mock_session_request.return_value.json.called)
+
+    @patch('requests.Session.post')
+    def test_make_request_closes_implicit_session(self, mock_request):
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.content = "OK"
+        # Perform request
+        with patch('requests.Session.close') as mock_session_close:
+            self.gcm.make_request(
+                {'message': 'test'}, is_json=True
+            )
+
+            self.assertTrue(mock_session_close.called)
 
     def test_type_error_in_handle_plaintext_response(self):
         with self.assertRaises(TypeError):

@@ -133,16 +133,16 @@ class Payload(object):
     def validate_time_to_live(self, value):
         if not (0 <= value <= self.GCM_TTL):
             raise GCMInvalidTtlException("Invalid time to live value")
-    
+
     def validate_registration_ids(self, registration_ids):
 
         if len(registration_ids) > 1000:
             raise GCMTooManyRegIdsException("Exceded number of registration_ids")
-    
+
     def validate_to(self, value):
         if not re.match(Payload.topicPattern, value):
             raise GCMInvalidInputException("Invalid topic name: {0}! Does not match the {1} pattern".format(value, Payload.topicPattern))
-    
+
     @property
     def body(self):
         raise NotImplementedError
@@ -251,18 +251,19 @@ class GCM(object):
                 kwargs['to'] = '/topics/{}'.format(kwargs.pop('topic'))
             elif 'registration_ids' not in kwargs:
                     raise GCMMissingRegistrationException("Missing registration_ids")
-            
+
             payload = JsonPayload(**kwargs).body
         else:
             payload = PlaintextPayload(**kwargs).body
 
         return payload
 
-    def make_request(self, data, is_json=True):
+    def make_request(self, data, is_json=True, session=None):
         """
         Makes a HTTP request to GCM servers with the constructed payload
 
         :param data: return value from construct_payload method
+        :param session: requests.Session object to use for request (optional)
         :raises GCMMalformedJsonException: if malformed JSON request found
         :raises GCMAuthenticationException: if there was a problem with authentication, invalid api key
         :raises GCMConnectionException: if GCM is screwed
@@ -284,10 +285,18 @@ class GCM(object):
         GCM.log('Request data: {0}', data)
         GCM.log('Request is_json: {0}', is_json)
 
-        response = requests.post(
-            self.url, data=data, headers=headers,
-            proxies=self.proxy, timeout=self.timeout,
-        )
+        new_session = None
+        if not session:
+            session = new_session = requests.Session()
+
+        try:
+            response = session.post(
+                self.url, data=data, headers=headers,
+                proxies=self.proxy, timeout=self.timeout,
+            )
+        finally:
+            if new_session:
+                new_session.close()
 
         GCM.log('Response status: {0} {1}', response.status_code, response.reason)
         GCM.log('Response headers: {0}', response.headers)
@@ -398,6 +407,7 @@ class GCM(object):
 
         kwargs['is_json'] = False
         retries = kwargs.pop('retries', 5)
+        session = kwargs.pop('session', None)
         payload = self.construct_payload(**kwargs)
         backoff = self.BACKOFF_INITIAL_DELAY
         info = None
@@ -405,7 +415,7 @@ class GCM(object):
 
         for attempt in range(retries):
             try:
-                response = self.make_request(payload, is_json=False)
+                response = self.make_request(payload, is_json=False, session=session)
                 info = self.handle_plaintext_response(response)
                 has_error = False
             except GCMUnavailableException:
@@ -443,6 +453,7 @@ class GCM(object):
         args = dict(**kwargs)
 
         retries = args.pop('retries', 5)
+        session = args.pop('session', None)
         payload = self.construct_payload(**args)
         registration_ids = args['registration_ids']
         backoff = self.BACKOFF_INITIAL_DELAY
@@ -451,7 +462,7 @@ class GCM(object):
 
         for attempt in range(retries):
             try:
-                response = self.make_request(payload, is_json=True)
+                response = self.make_request(payload, is_json=True, session=session)
                 info = self.handle_json_response(response, registration_ids)
                 unsent_reg_ids = self.extract_unsent_reg_ids(info)
                 has_error = False
