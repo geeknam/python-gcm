@@ -512,12 +512,13 @@ class GCM(object):
             raise GCMInvalidInputException("Topic name cannot be empty!")
 
         retries = kwargs.pop('retries', 5)
+        session = kwargs.pop('session', None)
         payload = self.construct_payload(**kwargs)
         backoff = self.BACKOFF_INITIAL_DELAY
 
         for attempt in range(retries):
             try:
-                response = self.make_request(payload, is_json=True)
+                response = self.make_request(payload, is_json=True, session=session)
                 return self.handle_topic_response(response)
             except GCMUnavailableException:
                 sleep_time = backoff / 2 + random.randrange(backoff)
