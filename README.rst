@@ -37,6 +37,7 @@ Features
 * Easily handle errors
 * Uses `requests` from version > 0.2
 * Topic Messaging `Reference <https://developers.google.com/cloud-messaging/topic-messaging>`__
+* TCP connection pooling and Keep-Alive when passing an explict requests.Session object to the used GCM request call
 
 Usage
 ------------
