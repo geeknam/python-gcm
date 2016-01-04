@@ -232,10 +232,11 @@ class GCM(object):
 
     @staticmethod
     def log(message, *data):
-        if GCM.logger:
+        if GCM.logger and message:
             GCM.logger.debug(message.format(*data))
 
-    def construct_payload(self, **kwargs):
+    @staticmethod
+    def construct_payload(**kwargs):
         """
         Construct the dictionary mapping of parameters.
         Encodes the dictionary into JSON if for json requests.
@@ -331,7 +332,8 @@ class GCM(object):
             error = "GCM service error: %d" % response.status_code
             raise GCMUnavailableException(error)
 
-    def raise_error(self, error):
+    @staticmethod
+    def raise_error(error):
         if error == 'InvalidRegistration':
             raise GCMInvalidRegistrationException("Registration ID is invalid")
         elif error == 'Unavailable':
@@ -373,7 +375,8 @@ class GCM(object):
             return None  # TODO: Decide a way to return message id without breaking backwards compatibility
                          # unquote(value)  # ID of the sent message (from the first line)
 
-    def handle_json_response(self, response, registration_ids):
+    @staticmethod
+    def handle_json_response(response, registration_ids):
         errors = group_response(response, registration_ids, 'error')
         canonical = group_response(response, registration_ids, 'registration_id')
         success = group_response(response, registration_ids, 'message_id')
@@ -391,13 +394,15 @@ class GCM(object):
 
         return info
 
-    def handle_topic_response(self, response):
+    @staticmethod
+    def handle_topic_response(response):
         error = response.get('error')
         if error:
             raise GCMTopicMessageException(error)
         return response['message_id']
 
-    def extract_unsent_reg_ids(self, info):
+    @staticmethod
+    def extract_unsent_reg_ids(info):
         if 'errors' in info and 'Unavailable' in info['errors']:
             return info['errors']['Unavailable']
         return []

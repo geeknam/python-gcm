@@ -55,7 +55,7 @@ Read about `Google Cloud Messaging <https://developers.google.com/cloud-messagin
    reg_ids = ['token1', 'token2', 'token3']
    response = gcm.json_request(registration_ids=reg_ids, data=data)
 
-   # Downstream messaage using JSON request with extra arguments
+   # Downstream message using JSON request with extra arguments
    res = gcm.json_request(
        registration_ids=reg_ids, data=data,
        collapse_key='uptoyou', delay_while_idle=True, time_to_live=3600
