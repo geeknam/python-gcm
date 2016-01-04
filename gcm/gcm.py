@@ -7,6 +7,11 @@ from sys import version_info
 import logging
 import re
 
+if version_info.major == 2:
+    from urllib2 import unquote
+else:
+    from urllib.parse import unquote
+
 GCM_URL = 'https://gcm-http.googleapis.com/gcm/send'
 
 
@@ -358,12 +363,15 @@ class GCM(object):
 
         # Split the first line by =
         key, value = response_lines[0].split('=')
+
+        # Error on first line
         if key == 'Error':
             self.raise_error(value)
-        else:
+        else:  # Canonical_id from the second line
             if len(response_lines) == 2:
-                return response_lines[1].split('=')[1]
-            return
+                return unquote(response_lines[1].split('=')[1])
+            return None  # TODO: Decide a way to return message id without breaking backwards compatibility
+                         # unquote(value)  # ID of the sent message (from the first line)
 
     def handle_json_response(self, response, registration_ids):
         errors = group_response(response, registration_ids, 'error')
@@ -432,6 +440,8 @@ class GCM(object):
                 time.sleep(nap_time)
                 if 2 * backoff < self.MAX_BACKOFF_DELAY:
                     backoff *= 2
+            else:
+                break
 
         if has_error:
             raise IOError("Could not make request after %d attempts" % retries)
