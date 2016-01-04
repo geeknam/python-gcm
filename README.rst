@@ -42,9 +42,7 @@ Features
 Usage
 ------------
 
-RTFM about `Google Cloud Messaging <https://developers.google.com/cloud-messaging>`__
-        
-Basic
+Read about `Google Cloud Messaging <https://developers.google.com/cloud-messaging>`__
 
 .. code-block:: python
 
@@ -53,88 +51,21 @@ Basic
    gcm = GCM(API_KEY)
    data = {'param1': 'value1', 'param2': 'value2'}
 
-   # Plaintext request
-   reg_id = '12'
-   gcm.plaintext_request(registration_id=reg_id, data=data)
-
-   # JSON request
-   reg_ids = ['12', '34', '69']
+   # Downstream message using JSON request
+   reg_ids = ['token1', 'token2', 'token3']
    response = gcm.json_request(registration_ids=reg_ids, data=data)
 
-   # Extra arguments
+   # Downstream messaage using JSON request with extra arguments
    res = gcm.json_request(
        registration_ids=reg_ids, data=data,
        collapse_key='uptoyou', delay_while_idle=True, time_to_live=3600
    )
 
    # Topic Messaging
-   topic = 'foo'
+   topic = 'topic name'
    gcm.send_topic_message(topic=topic, data=data)
 
-
-Error handling
-
-.. code-block:: python
-
-   # Plaintext request
-   reg_id = '12345'
-   try:
-       canonical_id = gcm.plaintext_request(registration_id=reg_id, data=data)
-       if canonical_id:
-           # Repace reg_id with canonical_id in your database
-           entry = entity.filter(registration_id=reg_id)
-           entry.registration_id = canonical_id
-           entry.save()
-   except GCMNotRegisteredException:
-       # Remove this reg_id from database
-       entity.filter(registration_id=reg_id).delete()
-   except GCMUnavailableException:
-       # Resent the message
-
-   # JSON request
-   reg_ids = ['12', '34', '69']
-   response = gcm.json_request(registration_ids=reg_ids, data=data)
-
-   # Successfully handled registration_ids
-   # Keep in mind that a registration id listed in response['success'] can also be in response['canonical'] if the registration id has changed
-   if response and 'success' in response:
-        for reg_id, success_id in response['success'].items():
-            print('SUCCESS for reg_id %s' % reg_id)
-
-   # Handling errors
-   if 'errors' in response:
-       for error, reg_ids in response['errors'].items():
-           # Check for errors and act accordingly
-           if error in ['NotRegistered', 'InvalidRegistration']:
-               # Remove reg_ids from database
-               for reg_id in reg_ids:
-                   entity.filter(registration_id=reg_id).delete()
-
-   if 'canonical' in response:
-       for reg_id, canonical_id in response['canonical'].items():
-           # Repace reg_id with canonical_id in your database
-           entry = entity.filter(registration_id=reg_id)
-           entry.registration_id = canonical_id
-           entry.save()
-
-Exceptions
-------------
-Read more on response errors `here
-<https://developers.google.com/cloud-messaging/http-server-ref#error-codes>`__
-
-
-* GCMMalformedJsonException
-* GCMConnectionException
-* GCMAuthenticationException
-* GCMTooManyRegIdsException
-* GCMNoCollapseKeyException
-* GCMInvalidTtlException
-* GCMMissingRegistrationException
-* GCMMismatchSenderIdException
-* GCMNotRegisteredException
-* GCMMessageTooBigException
-* GCMInvalidRegistrationException
-* GCMUnavailableException
+See examples directory for more usage details, including error handling.
 
 Contributing
 ==========
