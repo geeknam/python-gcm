@@ -65,7 +65,7 @@ Read about `Google Cloud Messaging <https://developers.google.com/cloud-messagin
    topic = 'topic name'
    gcm.send_topic_message(topic=topic, data=data)
 
-See examples directory for more usage details, including error handling.
+See `examples <examples>`_  directory for more usage details, including error handling.
 
 Contributing
 ==========
