@@ -521,6 +521,9 @@ class GCM(object):
 
         return info
 
+    def send_downstream_message(self, **kwargs):
+        return self.json_request(**kwargs)
+
     def send_topic_message(self, **kwargs):
         """
         Publish Topic Messaging to GCM servers
@@ -545,16 +548,19 @@ class GCM(object):
             try:
                 response = self.make_request(payload, is_json=True, session=session)
                 return self.handle_topic_response(response)
-            except GCMUnavailableException:
-                sleep_time = backoff / 2 + random.randrange(backoff)
-                time.sleep(float(sleep_time) / 1000)
-                if 2 * backoff < self.MAX_BACKOFF_DELAY:
-                    backoff *= 2
-        else:
-            raise IOError("Could not make request after %d attempts" % retries)
+            except (GCMUnavailableException, GCMTopicMessageException):
+                if self.retry_after:
+                    GCM.log("[send_topic_message - Attempt #{0}] Retry-After ~> Sleeping for {1}"
+                            .format(attempt, self.retry_after))
 
-    def send_device_group_message(self, **kwargs):
-        raise NotImplementedError
+                    time.sleep(self.retry_after)
+                    self.retry_after = None
+                else:
+                    sleep_time = backoff / 2 + random.randrange(backoff)
+                    nap_time = float(sleep_time) / 1000
+                    GCM.log("[send_topic_message - Attempt #{0}] Backoff ~> Sleeping for {1}".format(attempt, nap_time))
+                    time.sleep(nap_time)
+                    if 2 * backoff < self.MAX_BACKOFF_DELAY:
+                        backoff *= 2
 
-    def send_downstream_message(self, **kwargs):
-        return self.json_request(**kwargs)
+        raise IOError("Could not make request after %d attempts" % retries)
