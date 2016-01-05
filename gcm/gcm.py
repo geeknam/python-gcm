@@ -182,6 +182,7 @@ class GCM(object):
     BACKOFF_INITIAL_DELAY = 1000
     MAX_BACKOFF_DELAY = 1024000
     logger = None
+    logging_handler = None
 
     def __init__(self, api_key, proxy=None, timeout=None, debug=False):
         """ api_key : google api key
@@ -215,10 +216,15 @@ class GCM(object):
         :return: the handler after adding it
         """
         if not handler:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter('[%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s - %(funcName)s()] %(message)s'))
+            # Use a singleton logging_handler instead of recreating it,
+            # so we can remove-and-re-add safely without having duplicate handlers
+            if GCM.logging_handler is None:
+                GCM.logging_handler = logging.StreamHandler()
+                GCM.logging_handler.setFormatter(logging.Formatter('[%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s - %(funcName)s()] %(message)s'))
+            handler = GCM.logging_handler
 
         GCM.logger = logging.getLogger(__name__)
+        GCM.logger.removeHandler(handler)
         GCM.logger.addHandler(handler)
         GCM.logger.setLevel(level)
         GCM.log('Added a stderr logging handler to logger: {0}', __name__)
@@ -226,6 +232,7 @@ class GCM(object):
         # Enable requests logging
         requests_logger_name = 'requests.packages.urllib3'
         requests_logger = logging.getLogger(requests_logger_name)
+        requests_logger.removeHandler(handler)
         requests_logger.addHandler(handler)
         requests_logger.setLevel(level)
         GCM.log('Added a stderr logging handler to logger: {0}', requests_logger_name)
