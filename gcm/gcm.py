@@ -172,7 +172,9 @@ class PlaintextPayload(Payload):
 class JsonPayload(Payload):
     @property
     def body(self):
-        return json.dumps(self.__dict__)
+        data = dict(self.__dict__)
+        json_encoder = data.pop('json_encoder', None)
+        return json.dumps(data, cls=json_encoder)
 
 
 class GCM(object):
