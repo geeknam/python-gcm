@@ -120,8 +120,12 @@ class Payload(object):
     GCM_TTL = 2419200
 
     topicPattern = re.compile('/topics/[a-zA-Z0-9-_.~%]+')
+    has_topic = False
 
     def __init__(self, **kwargs):
+        if 'topic' in kwargs:
+            kwargs['to'] = '/topics/{}'.format(kwargs.pop('topic'))
+            self.has_topic = True
         self.validate(kwargs)
         self.__dict__.update(**kwargs)
 
@@ -145,7 +149,7 @@ class Payload(object):
             raise GCMTooManyRegIdsException("Exceded number of registration_ids")
 
     def validate_to(self, value):
-        if not re.match(Payload.topicPattern, value):
+        if self.has_topic and not re.match(Payload.topicPattern, value):
             raise GCMInvalidInputException(
                 "Invalid topic name: {0}! Does not match the {1} pattern".format(value, Payload.topicPattern))
 
@@ -256,16 +260,11 @@ class GCM(object):
         is_json = kwargs.pop('is_json', True)
 
         if is_json:
-            if 'topic' not in kwargs and 'registration_ids' not in kwargs:
-                raise GCMMissingRegistrationException("Missing registration_ids or topic")
-            elif 'topic' in kwargs and 'registration_ids' in kwargs:
+            if 'topic' not in kwargs and 'registration_ids' not in kwargs and 'to' not in kwargs:
+                raise GCMMissingRegistrationException("Missing 'registration_ids', 'topic' or 'to'")
+            elif len(set(['topic', 'registration_ids', 'to']) & set(kwargs.keys())) > 1:
                 raise GCMInvalidInputException(
-                    "Invalid parameters! Can't have both 'registration_ids' and 'to' as input parameters")
-
-            if 'topic' in kwargs:
-                kwargs['to'] = '/topics/{}'.format(kwargs.pop('topic'))
-            elif 'registration_ids' not in kwargs:
-                raise GCMMissingRegistrationException("Missing registration_ids")
+                    "Invalid parameters! Can only have one of 'registration_ids', 'topic' and 'to' as input parameters")
 
             payload = JsonPayload(**kwargs).body
         else:
@@ -561,6 +560,47 @@ class GCM(object):
                     sleep_time = backoff / 2 + random.randrange(backoff)
                     nap_time = float(sleep_time) / 1000
                     GCM.log("[send_topic_message - Attempt #{0}] Backoff ~> Sleeping for {1}".format(attempt, nap_time))
+                    time.sleep(nap_time)
+                    if 2 * backoff < self.MAX_BACKOFF_DELAY:
+                        backoff *= 2
+
+        raise IOError("Could not make request after %d attempts" % retries)
+
+    def send_to_message(self, **kwargs):
+        """
+        Send a message to a GCM instance id
+        Ref: https://developers.google.com/cloud-messaging/http-server-ref
+
+        :param kwargs: dict mapping of key-value pairs of parameters
+        :return message_id
+        :raises GCMInvalidInputException: if the 'to' field is empty
+        """
+
+        if 'to' not in kwargs:
+            raise GCMInvalidInputException("'to' field missing!")
+        elif not kwargs['to']:
+            raise GCMInvalidInputException("'to' field cannot be empty!")
+
+        retries = kwargs.pop('retries', 5)
+        session = kwargs.pop('session', None)
+        payload = self.construct_payload(**kwargs)
+        backoff = self.BACKOFF_INITIAL_DELAY
+
+        for attempt in range(retries):
+            try:
+                response = self.make_request(payload, is_json=True, session=session)
+                return self.handle_json_response(response, [kwargs['to']])
+            except GCMUnavailableException:
+                if self.retry_after:
+                    GCM.log("[send_to_message - Attempt #{0}] Retry-After ~> Sleeping for {1}"
+                            .format(attempt, self.retry_after))
+
+                    time.sleep(self.retry_after)
+                    self.retry_after = None
+                else:
+                    sleep_time = backoff / 2 + random.randrange(backoff)
+                    nap_time = float(sleep_time) / 1000
+                    GCM.log("[send_to_message - Attempt #{0}] Backoff ~> Sleeping for {1}".format(attempt, nap_time))
                     time.sleep(nap_time)
                     if 2 * backoff < self.MAX_BACKOFF_DELAY:
                         backoff *= 2
