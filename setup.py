@@ -12,6 +12,6 @@ setup(
     long_description=open('README.rst').read(),
     keywords='android gcm push notification google cloud messaging',
     install_requires=['requests'],
-    tests_require=['mock'],
+    tests_require=['mock', 'coverage'],
     test_suite='gcm.test',
 )

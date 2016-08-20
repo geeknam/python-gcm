@@ -23,6 +23,11 @@ class GCMTest(unittest.TestCase):
             'param1': '1',
             'param2': '2'
         }
+        self.notification = {
+           "title": "Awesome App Update",
+           "body": "Tap here to start the update!",
+           "icon": "myicon"
+        }
         self.response = {
             'results': [
                 {'error': 'InvalidRegistration'},
@@ -91,11 +96,13 @@ class GCMTest(unittest.TestCase):
 
     def test_json_payload(self):
         reg_ids = ['12', '145', '56']
-        json_payload = self.gcm.construct_payload(registration_ids=reg_ids, data=self.data)
+        json_payload = self.gcm.construct_payload(registration_ids=reg_ids, data=self.data,
+            notification=self.notification)
         payload = json.loads(json_payload)
 
         self.assertIn('registration_ids', payload)
         self.assertEqual(payload['data'], self.data)
+        self.assertEqual(payload['notification'], self.notification)
         self.assertEqual(payload['registration_ids'], reg_ids)
 
     def test_plaintext_payload(self):
