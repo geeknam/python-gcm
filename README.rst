@@ -57,8 +57,27 @@ Read about `Google Cloud Messaging <https://developers.google.com/cloud-messagin
 
    # Downstream message using JSON request with extra arguments
    res = gcm.json_request(
-       registration_ids=reg_ids, data=data,
-       collapse_key='uptoyou', delay_while_idle=True, time_to_live=3600
+       registration_ids=reg_ids,
+       data=data,
+       collapse_key='uptoyou',
+       delay_while_idle=True,
+       time_to_live=3600
+   )
+
+   # Downstream message which contains data and notification sections 
+   # using JSON request with extra arguments
+   notification = {
+      "title": "Awesome App Update",
+      "body": "Tap here to start the update!",
+      "icon": "myicon"
+   }
+   res = gcm.json_request(
+       registration_ids=reg_ids,
+       data=data,
+       notification=notification,
+       collapse_key='uptoyou',
+       delay_while_idle=True,
+       time_to_live=3600
    )
 
    # Topic Messaging

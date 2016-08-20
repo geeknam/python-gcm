@@ -12,12 +12,18 @@ registration_ids = ["your token 1", "your token 2"]
 
 notification = {
     "title": "Awesome App Update",
-    "message": "Tap here to start the update!",
-    "uri": "market://details?id=gcm.play.android.samples.com.gcmquickstart"
+    "body": "Tap here to start the update!",
+    "icon": "myicon"
+}
+
+data = {
+    "Nick": "Mario",
+    "Room": "PortugalVSDenmark"
 }
 
 response = gcm.json_request(registration_ids=registration_ids,
-                            data=notification,
+                            notification=notification,
+                            data=data,
                             collapse_key='awesomeapp_update',
                             restricted_package_name="gcm.play.android.samples.com.gcmquickstart",
                             priority='high',
