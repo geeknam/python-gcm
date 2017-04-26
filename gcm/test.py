@@ -307,14 +307,16 @@ class GCMTest(unittest.TestCase):
         """ Test make_request uses timeout. """
         mock_request.return_value.status_code = 200
         mock_request.return_value.content = "OK"
-        gcm = GCM('123api', timeout=sentinel.timeout)
+        api_key = '123api'
+        gcm = GCM(api_key, timeout=sentinel.timeout)
 
         gcm.make_request(
             {'message': 'test'}, is_json=True
         )
         mock_request.assert_called_once_with(
             GCM_URL, data={'message': 'test'},
-            headers={'Authorization': 'key=123api', 'Content-Type': 'application/json'}, proxies=None,
+            headers={'Content-Type': 'application/json'}, proxies=None,
+            auth=KeyAuth(api_key),
             timeout=sentinel.timeout,
         )
 
