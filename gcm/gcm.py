@@ -12,8 +12,29 @@ if version_info.major == 2:
 else:
     from urllib.parse import unquote
 
+
 GCM_URL = 'https://gcm-http.googleapis.com/gcm/send'
 
+
+class KeyAuth(requests.auth.AuthBase):
+    """Attaches Key Authentication to the given Request object."""
+    def __init__(self, key):
+        # setup any auth-related data here
+        self.key = key
+
+    def __call__(self, r):
+        # modify and return the request
+        r.headers['Authorization'] = 'key=%s' % self.key
+        return r
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.key == other.key
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 class GCMException(Exception):
     pass
@@ -283,9 +304,9 @@ class GCM(object):
         :raises GCMConnectionException: if GCM is screwed
         """
 
-        headers = {
-            'Authorization': 'key=%s' % self.api_key,
-        }
+        auth = KeyAuth(self.api_key)
+
+        headers = {}
 
         if is_json:
             headers['Content-Type'] = 'application/json'
@@ -305,7 +326,7 @@ class GCM(object):
 
         try:
             response = session.post(
-                    self.url, data=data, headers=headers,
+                    self.url, data=data, headers=headers, auth=auth,
                     proxies=self.proxy, timeout=self.timeout,
             )
         finally:
