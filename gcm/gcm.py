@@ -13,7 +13,7 @@ else:
     from urllib.parse import unquote
 
 
-GCM_URL = 'https://fcm.googleapis.com/fcm/send/'
+GCM_URL = 'https://fcm.googleapis.com/fcm/send'
 
 
 class KeyAuth(requests.auth.AuthBase):
